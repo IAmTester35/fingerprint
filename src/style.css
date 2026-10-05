@@ -1,14 +1,14 @@
 :root {
-  --bg-dark: #0d1219;
-  --bg-panel: #101620;
-  --bg-viewport: #101620;
-  --bg-slot-inactive: #141c26;
-  --border-tactical: rgba(70, 95, 125, 0.45);
-  --border-tactical-bright: rgba(110, 145, 180, 0.65);
-  --cyan-primary: #00f2fe;
-  --cyan-glow: rgba(0, 242, 254, 0.4);
-  --text-main: #e2e8f0;
-  --text-muted: #748ca6;
+  --bg-dark: #0b1117;
+  --bg-panel: #16212b;
+  --bg-viewport: #16212b;
+  --bg-slot-inactive: rgba(22, 33, 44, 0.75);
+  --border-tactical: rgba(75, 105, 135, 0.45);
+  --border-tactical-bright: rgba(125, 160, 195, 0.65);
+  --cyan-primary: #8cc4ec;
+  --cyan-glow: rgba(140, 196, 236, 0.35);
+  --text-main: #d8e5f2;
+  --text-muted: #6e869e;
   --success: #00e676;
   --danger: #ff3366;
   --font-hud: 'Chakra Petch', sans-serif;
@@ -67,6 +67,133 @@ body {
   gap: 10px;
   position: relative;
   z-index: 10;
+}
+
+/* Tactical Header HUD */
+.tactical-header-hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(16, 22, 32, 0.9);
+  border: 1px solid var(--border-tactical);
+  padding: 8px 16px;
+  position: relative;
+  backdrop-filter: blur(8px);
+}
+
+.hud-title-zone {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hud-sys-tag {
+  font-family: var(--font-hud);
+  font-weight: 700;
+  font-size: 0.92rem;
+  letter-spacing: 1.5px;
+  color: #fff;
+  text-shadow: 0 0 10px rgba(0, 242, 254, 0.4);
+}
+
+.hud-status-live {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--success);
+  letter-spacing: 1px;
+}
+
+.live-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--success);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--success);
+  animation: pulse-live 1.8s infinite ease-in-out;
+}
+
+@keyframes pulse-live {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+/* Quick Difficulty Switcher */
+.hud-difficulty-bar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(8, 12, 19, 0.6);
+  padding: 3px 6px;
+  border: 1px solid rgba(70, 95, 125, 0.35);
+}
+
+.diff-title {
+  font-family: var(--font-hud);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  letter-spacing: 0.8px;
+  margin-right: 2px;
+}
+
+.diff-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-family: var(--font-hud);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  padding: 4px 9px;
+  cursor: pointer;
+  border-radius: 1px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.diff-btn:hover {
+  color: #fff;
+  border-color: rgba(0, 242, 254, 0.4);
+  background: rgba(0, 242, 254, 0.08);
+}
+
+.diff-btn.active {
+  background: rgba(0, 242, 254, 0.18);
+  border-color: var(--cyan-primary);
+  color: var(--cyan-primary);
+  box-shadow: 0 0 12px rgba(0, 242, 254, 0.35);
+}
+
+.diff-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: all 0.2s;
+}
+
+.diff-btn.active .diff-dot {
+  background: var(--cyan-primary);
+  box-shadow: 0 0 6px var(--cyan-primary);
+}
+
+.hud-telemetry-zone {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-hud);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  letter-spacing: 0.8px;
+}
+
+.hud-telemetry-zone strong {
+  font-family: var(--font-mono);
+  color: #fff;
 }
 
 /* Tactical Board - Left & Right Panels (Matching ui_expected.jpg) */
@@ -211,7 +338,7 @@ body {
 
 .slot-number {
   font-family: var(--font-hud);
-  font-size: 1.55rem;
+  font-size: var(--slot-font-size, 1.45rem);
   font-weight: 700;
   color: #d8e4f0;
   text-shadow: 0 0 10px rgba(0, 0, 0, 0.95);
@@ -364,8 +491,8 @@ body {
 /* Pieces Grid in 3 columns exactly matching ui_expected.jpg */
 .pieces-grid {
   display: grid;
-  grid-template-columns: repeat(3, 74px);
-  grid-gap: 12px 14px;
+  grid-template-columns: repeat(3, var(--card-size, 74px));
+  grid-gap: var(--card-gap-y, 12px) var(--card-gap-x, 14px);
   grid-auto-flow: row;
   justify-content: start;
   align-content: start;
@@ -379,8 +506,8 @@ body {
 }
 
 .piece-card {
-  width: 74px;
-  height: 74px;
+  width: var(--card-size, 74px);
+  height: var(--card-size, 74px);
   background: var(--bg-viewport);
   border: 1px solid rgba(80, 115, 150, 0.48);
   border-radius: 1px;

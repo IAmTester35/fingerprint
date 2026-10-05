@@ -15,7 +15,34 @@
     <div class="scanlines"></div>
 
     <div id="game-app">
-      <!-- Main Tactical Game Board (Exactly matching ui_expected.jpg) -->
+      <!-- Tactical Top Header Bar with Difficulty Switcher -->
+      <header class="tactical-header-hud">
+        <div class="hud-title-zone">
+          <span class="hud-sys-tag">CLONER // BIO-DECIPHER</span>
+          <span class="hud-status-live"><span class="live-dot"></span> LINK ACTIVE</span>
+        </div>
+
+        <!-- Gameplay Difficulty Switcher (Easy: 4, Normal: 6, Hard: 8) -->
+        <div class="hud-difficulty-bar" id="hud-difficulty-bar">
+          <span class="diff-title">ĐỘ KHÓ:</span>
+          <button class="diff-btn active" data-difficulty="easy" data-slots="4" title="Cấp độ Dễ - 4 mục tiêu">
+            <span class="diff-dot"></span> DỄ [4]
+          </button>
+          <button class="diff-btn" data-difficulty="normal" data-slots="6" title="Cấp độ Vừa - 6 mục tiêu">
+            <span class="diff-dot"></span> VỪA [6]
+          </button>
+          <button class="diff-btn" data-difficulty="hard" data-slots="8" title="Cấp độ Khó - 8 mục tiêu">
+            <span class="diff-dot"></span> KHÓ [8]
+          </button>
+        </div>
+
+        <div class="hud-telemetry-zone">
+          <span class="telemetry-item">CẤP: <strong id="hud-level-val">01</strong></span>
+          <span class="telemetry-item">LỖI: <strong id="hud-wrong-val">0</strong></span>
+        </div>
+      </header>
+
+      <!-- Main Tactical Game Board (Matching GTA V aesthetic) -->
       <main class="tactical-board">
         <!-- Left Panel: Master Fingerprint Scanner -->
         <section class="panel-scanner">
@@ -38,7 +65,7 @@
           <div class="scanner-viewport" id="scanner-viewport">
             <canvas id="main-canvas" width="512" height="512"></canvas>
             
-            <!-- Target Slots (1, 2, 3, 4) Overlay -->
+            <!-- Target Slots (1..N) Overlay -->
             <div id="target-slots-container" class="target-slots-layer"></div>
 
             <!-- Loader Spinner -->
@@ -56,7 +83,7 @@
           </div>
         </section>
 
-        <!-- Right Panel: Fragment Pieces Selection (matching ui_expected.jpg) -->
+        <!-- Right Panel: Fragment Pieces Selection (matching GTA V) -->
         <section class="panel-selection">
           <div class="hud-frame-corners">
             <span class="corner corner-tl"></span>
@@ -129,12 +156,16 @@
             <strong id="win-level">01</strong>
           </div>
           <div class="stat-row">
+            <span>ĐỘ KHÓ:</span>
+            <strong id="win-diff" class="text-success">DỄ // 4 MỤC TIÊU</strong>
+          </div>
+          <div class="stat-row">
             <span>SỐ LẦN CHỌN SAI:</span>
             <strong id="win-wrong" class="text-danger">0</strong>
           </div>
           <div class="stat-row">
             <span>ĐỘ CHÍNH XÁC:</span>
-            <strong class="text-success">100%</strong>
+            <strong id="win-accuracy" class="text-success">100%</strong>
           </div>
         </div>
         <button id="btn-next-level" class="btn-tactical-primary">
@@ -150,6 +181,14 @@
         <button id="btn-close-drawer" class="btn-close">×</button>
       </div>
       <div class="drawer-content">
+        <div class="form-group">
+          <label>Cấp độ chơi (Độ khó)</label>
+          <div class="segmented-control" id="drawer-difficulty-control">
+            <button class="seg-btn active" data-difficulty="easy">Dễ (4)</button>
+            <button class="seg-btn" data-difficulty="normal">Vừa (6)</button>
+            <button class="seg-btn" data-difficulty="hard">Khó (8)</button>
+          </div>
+        </div>
         <div class="form-group">
           <label for="seed-input">Seed ngẫu nhiên</label>
           <div class="input-row">
@@ -189,6 +228,27 @@
             <span id="iterations-val" class="mono-val">10 vòng</span>
           </div>
           <input type="range" id="iterations-slider" min="4" max="16" step="1" value="10" />
+        </div>
+        <div class="form-group">
+          <div class="label-row">
+            <label for="breaks-slider">Độ xước / Đứt gãy (Micro-breaks)</label>
+            <span id="breaks-val" class="mono-val">40%</span>
+          </div>
+          <input type="range" id="breaks-slider" min="0" max="100" step="5" value="40" />
+        </div>
+        <div class="form-group">
+          <div class="label-row">
+            <label for="grain-slider">Hạt mực sinh trắc (Dermal Grain)</label>
+            <span id="grain-val" class="mono-val">32%</span>
+          </div>
+          <input type="range" id="grain-slider" min="0" max="100" step="5" value="32" />
+        </div>
+        <div class="form-group">
+          <div class="label-row">
+            <label for="pores-slider">Tuyến mồ hôi (Sweat Pores)</label>
+            <span id="pores-val" class="mono-val">35%</span>
+          </div>
+          <input type="range" id="pores-slider" min="0" max="100" step="5" value="35" />
         </div>
         <div class="form-group">
           <label>Lớp phủ gỡ lỗi (Debug Overlays)</label>

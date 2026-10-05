@@ -1,15 +1,24 @@
 /**
- * Post-processing pipeline for photographic and forensic realism.
- * Simulates dermal dynamics:
- * - High-definition ridge-valley thresholding with sub-pixel antialiasing
- * - Microscopic sweat pores along central ridge peaks
- * - Fine transverse flexion creases
- * - Dermal contact pressure gradient
+ * Post-processing pipeline for authentic forensic & dermal realism.
+ * Simulates real-world physical and biometric capture phenomena:
+ * - Flow-aligned dermal papillae micro-stippling & ink granularity
+ * - Organic incipient ridge micro-breaks, hairline cuts & dry skin fissures
+ * - Biological sweat pores (small pits along ridge crests)
+ * - Physiological contact pressure gradient
+ * - Natural peripheral dissolution (ridges softly breaking into specks at the edges)
  */
-export function postProcessRidges(width, height, rawRidges, maskInfo, params, rng, noise) {
+export function postProcessRidges(width, height, rawRidges, maskInfo, params = {}, rng, noise, theta = null) {
   const { mask, center, radii } = maskInfo;
   const numPixels = width * height;
   const processed = new Float32Array(numPixels);
+
+  // Configurable realism parameters
+  const {
+    grainStrength = 0.32,
+    breakFrequency = 0.40,
+    poreFrequency = 0.35,
+    pressureContrast = 0.38
+  } = params;
 
   // 1. Dermal Pressure Map: pressure is highest at center/upper pulp, falling off smoothly toward edges
   const pressure = new Float32Array(numPixels);
@@ -27,106 +36,129 @@ export function postProcessRidges(width, height, rawRidges, maskInfo, params, rn
 
       // Low frequency anatomical curvature
       const pNoise = noise.fbm(x * 0.01, y * 0.01, 2, 0.5, 2.0);
-      p = Math.max(0.3, Math.min(1.0, p + pNoise * 0.12));
+      p = Math.max(0.25, Math.min(1.0, p + pNoise * 0.12));
 
       pressure[idx] = p * mask[idx];
     }
   }
 
-  // 2. Transverse Creases (fine joint lines and epidermal incisions)
-  const creaseMask = new Float32Array(numPixels);
-  creaseMask.fill(1.0);
-
-  // Joint crease near the base
-  const numCreases = rng.nextInt(1, 3);
-  for (let c = 0; c < numCreases; c++) {
-    const baseY = center.y + radii.ry * (0.70 + c * 0.09) + rng.nextFloat(-4, 4);
-    const amp = rng.nextFloat(6, 14);
-    const freq = 0.012 + rng.nextFloat(0, 0.004);
-    const phase = rng.nextFloat(0, Math.PI * 2);
-
-    for (let x = 0; x < width; x++) {
-      const lineY = baseY + Math.sin(x * freq + phase) * amp;
-      const startY = Math.max(0, Math.floor(lineY - 2));
-      const endY = Math.min(height - 1, Math.ceil(lineY + 2));
-
-      for (let y = startY; y <= endY; y++) {
-        const d = Math.abs(y - lineY);
-        if (d < 1.6) {
-          const idx = y * width + x;
-          const fade = d / 1.6;
-          creaseMask[idx] = Math.min(creaseMask[idx], fade);
-        }
-      }
-    }
-  }
-
-  // 3. Sweat Pores generation: placed strictly on strong ridge crests (rawRidges > 0.55)
-  const poreMask = new Uint8Array(numPixels);
-  const poreStep = 7;
-  for (let y = 14; y < height - 14; y += poreStep) {
-    for (let x = 14; x < width - 14; x += poreStep) {
-      const jx = x + rng.nextInt(-2, 2);
-      const jy = y + rng.nextInt(-2, 2);
+  // 2. Sweat Pores generation: placed naturally along strong ridge peaks (rawRidges > 0.45)
+  const poreField = new Uint8Array(numPixels);
+  const poreStep = 6;
+  for (let py = 12; py < height - 12; py += poreStep) {
+    for (let px = 12; px < width - 12; px += poreStep) {
+      const jx = px + rng.nextInt(-2, 2);
+      const jy = py + rng.nextInt(-2, 2);
       const idx = jy * width + jx;
 
-      if (mask[idx] > 0.55 && rawRidges[idx] > 0.55) {
-        if (rng.next() < 0.28) {
-          // Draw 1px pore with subpixel falloff
-          for (let py = -1; py <= 1; py++) {
-            for (let px = -1; px <= 1; px++) {
-              const r2 = px * px + py * py;
-              if (r2 <= 2) {
-                poreMask[(jy + py) * width + (jx + px)] = 1;
-              }
-            }
-          }
+      if (mask[idx] > 0.4 && rawRidges[idx] > 0.45) {
+        if (rng.next() < poreFrequency) {
+          // 1-2px pore indentation
+          poreField[idx] = 1;
+          if (jx + 1 < width) poreField[idx + 1] = 1;
+          if (jy + 1 < height) poreField[(jy + 1) * width + jx] = 1;
         }
       }
     }
   }
 
-  // 4. Crisp Forensic Dermal Thresholding & Synthesis
+  // 3. Hairline Transverse Cuts & Incisions (fine dry skin cracks)
+  const numHairlines = rng.nextInt(6, 12);
+  const hairlines = [];
+  for (let h = 0; h < numHairlines; h++) {
+    hairlines.push({
+      cy: center.y + rng.nextFloat(-radii.ry * 0.75, radii.ry * 0.75),
+      cx: center.x + rng.nextFloat(-radii.rx * 0.65, radii.rx * 0.65),
+      len: rng.nextFloat(18, 55),
+      angle: rng.nextFloat(-0.45, 0.45)
+    });
+  }
+
+  // Pre-generate micro-dropout map for incipient breaks
+  const dropoutNoiseOffset = rng.nextFloat(0, 500);
+
+  // 4. Physical Dermal Ridge Rendering with Organic Imperfections
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const idx = y * width + x;
       const m = mask[idx];
-      if (m <= 0) {
+      if (m <= 0.005) {
         processed[idx] = 0;
         continue;
       }
 
-      let ridgeVal = rawRidges[idx];
-
-      // Contact pressure modulates ridge width (ridge-valley duty cycle)
+      const raw = rawRidges[idx]; // [-1, 1]
       const press = pressure[idx];
-      const threshold = 0.0 - (press - 0.5) * 0.28;
 
-      // Microscopic dermal ink boundary texture (applied to threshold, not blurred output)
-      const inkJitter = noise.noise2D(x * 0.18, y * 0.18) * 0.04;
-      const distFromThreshold = (ridgeVal - (threshold + inkJitter));
-
-      // Crisp subpixel sigmoid edge transition (high sharpness with smooth 1px antialiasing)
-      const edgeSharpness = 16.0;
-      let v = 1.0 / (1.0 + Math.exp(-edgeSharpness * distFromThreshold));
-
-      // Pore micro-indentation
-      if (poreMask[idx]) {
-        v *= 0.10;
+      // A. Flow-Aligned Papillae Noise (grain aligned along ridge direction theta)
+      let grain = 0;
+      if (theta) {
+        const ang = theta[idx];
+        const cosA = Math.cos(ang);
+        const sinA = Math.sin(ang);
+        const u = (x * cosA + y * sinA) * 0.45;
+        const v = (-x * sinA + y * cosA) * 0.25;
+        grain = noise.noise2D(u, v) * 0.24 + noise.noise2D(x * 0.85, y * 0.85) * 0.12;
+      } else {
+        grain = noise.noise2D(x * 0.35, y * 0.35) * 0.22 + noise.noise2D(x * 0.85, y * 0.85) * 0.12;
       }
 
-      // Crease interruption
-      v *= creaseMask[idx];
+      // B. Hairline Cut Attenuation
+      let cutAtten = 1.0;
+      for (let h = 0; h < hairlines.length; h++) {
+        const hl = hairlines[h];
+        const dx = x - hl.cx;
+        const dy = y - hl.cy;
+        const along = dx * Math.cos(hl.angle) + dy * Math.sin(hl.angle);
+        const perp = -dx * Math.sin(hl.angle) + dy * Math.cos(hl.angle);
+        if (Math.abs(along) < hl.len / 2 && Math.abs(perp) < 1.3) {
+          cutAtten = Math.min(cutAtten, Math.abs(perp) / 1.3);
+        }
+      }
 
-      // Composite with mask
-      processed[idx] = v * m;
+      // C. Random Micro-Breaks (incipient interruptions)
+      const dNoise = noise.noise2D(x * 0.14 + dropoutNoiseOffset, y * 0.14);
+      let breakFactor = 1.0;
+      if (dNoise > (0.68 - breakFrequency * 0.2)) {
+        const thresholdD = 0.68 - breakFrequency * 0.2;
+        breakFactor = Math.max(0.0, 1.0 - (dNoise - thresholdD) * 5.0);
+      }
+
+      // D. Dynamic Threshold modulated by contact pressure & papillae grain
+      const threshold = -0.10 - (press - 0.5) * pressureContrast + grain * grainStrength;
+
+      let ridgeVal = 0;
+      if (raw > threshold) {
+        const delta = raw - threshold;
+        // Continuous non-linear power curve for natural optical reflection
+        ridgeVal = Math.min(1.0, Math.pow(delta / (1.0 - threshold + 0.001), 0.72));
+      }
+
+      // Apply imperfections
+      ridgeVal *= cutAtten * breakFactor;
+
+      // Apply pores
+      if (poreField[idx]) {
+        ridgeVal *= 0.18;
+      }
+
+      // E. Natural Peripheral Dissolution (Mép vân tay loang hạt tự nhiên)
+      if (m < 0.65) {
+        const normM = m / 0.65;
+        const scatter = (noise.noise2D(x * 0.45, y * 0.45) + 1.0) * 0.5;
+        if (scatter > normM * 1.08) {
+          ridgeVal *= Math.pow(normM, 1.8);
+        } else {
+          ridgeVal *= Math.pow(normM, 1.15);
+        }
+      }
+
+      processed[idx] = Math.max(0.0, Math.min(1.0, ridgeVal * m));
     }
   }
 
   return {
     processed,
-    pressure,
-    creaseMask
+    pressure
   };
 }
-

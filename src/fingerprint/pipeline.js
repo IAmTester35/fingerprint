@@ -1,4 +1,4 @@
-﻿import { createRng } from '../core/prng.js';
+import { createRng } from '../core/prng.js';
 import { createNoise2D } from '../core/noise.js';
 import { generateThumbMask } from './mask.js';
 import { placeSingularities } from './singularities.js';
@@ -51,7 +51,7 @@ export function generateFullFingerprint(params = {}) {
 
   // 7. Dermal Post-processing (pressure, pores, creases, ink)
   const t5 = performance.now();
-  const postInfo = postProcessRidges(width, height, ridges.rawRidges, maskInfo, params, rng, noise);
+  const postInfo = postProcessRidges(width, height, ridges.rawRidges, maskInfo, params, rng, noise, theta);
   timings.postprocessMs = performance.now() - t5;
 
   // 8. Quality Validation & Minutiae extraction

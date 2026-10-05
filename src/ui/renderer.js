@@ -1,7 +1,23 @@
 /**
- * Canvas 2D Renderer for procedural fingerprints.
- * Implements the authentic forensic tactical styling shown in ui_expected.jpg.
+ * Canvas 2D Renderer for procedural and authentic fingerprints.
+ * Implements authentic tactical surveillance monitor styling matching GTA V / ui_expected.jpg:
+ * - Surveillance Slate Monitor background (#16212b)
+ * - Soft silvery ash-white dermal ridges (#cad2da) with slate midtones (#788a98)
+ * - Subtle CRT scanline modulation
+ * - Seamless cutout masking for unsolved puzzle slots
  */
+
+const PALETTE = {
+  bgR: 22,
+  bgG: 33,
+  bgB: 43,     // Deep surveillance slate #16212b
+  midR: 120,
+  midG: 138,
+  midB: 152,  // Dermal slate midtone #788a98
+  ridgeR: 202,
+  ridgeG: 210,
+  ridgeB: 218 // Authentic silvery ash-white #cad2da
+};
 
 export function renderFingerprint(canvas, result, options = {}) {
   const { width, height, processed, puzzle } = result;
@@ -18,7 +34,7 @@ export function renderFingerprint(canvas, result, options = {}) {
   const ctx = canvas.getContext('2d');
 
   // Background - deep tactical surveillance dark matching ui_expected.jpg
-  ctx.fillStyle = '#101620';
+  ctx.fillStyle = `rgb(${PALETTE.bgR}, ${PALETTE.bgG}, ${PALETTE.bgB})`;
   ctx.fillRect(0, 0, width, height);
 
   // Build cutout mask lookup for unsolved target pieces
@@ -39,42 +55,49 @@ export function renderFingerprint(canvas, result, options = {}) {
     });
   }
 
-  // Draw continuous biometric ridge lines with cutouts
+  // Draw continuous biometric ridge lines with cutouts & authentic color grading
   const imgData = ctx.createImageData(width, height);
   const data = imgData.data;
 
+  const { bgR, bgG, bgB, midR, midG, midB, ridgeR, ridgeG, ridgeB } = PALETTE;
+
   for (let y = 0; y < height; y++) {
+    const scanline = (y % 2 === 0) ? 0.96 : 1.0;
+    const rowOffset = y * width;
+
     for (let x = 0; x < width; x++) {
-      const i = y * width + x;
+      const i = rowOffset + x;
       const pIdx = i * 4;
       const isCutout = cutoutMask[i] === 1;
-      let val = processed[i]; // [0, 1]
+      const val = processed[i]; // [0, 1]
 
-      if (isCutout) {
-        // Entirely cut out fingerprint ridges in missing slot regions (no see-through ridges)
-        data[pIdx + 0] = 16;
-        data[pIdx + 1] = 22;
-        data[pIdx + 2] = 32;
+      if (isCutout || val <= 0.005) {
+        // Cutout slot or background
+        data[pIdx + 0] = Math.round(bgR * scanline);
+        data[pIdx + 1] = Math.round(bgG * scanline);
+        data[pIdx + 2] = Math.round(bgB * scanline);
         data[pIdx + 3] = 255;
       } else if (style === 'tactical' || style === 'cyber') {
-        if (val > 0.08) {
-          // Smooth, crisp intensity for clean ridge rendering matching ui_expected.jpg
-          const norm = Math.min(1.0, (val - 0.08) / 0.92);
-          const intensity = Math.round(100 + norm * 155); // 100..255
-
-          data[pIdx + 0] = Math.min(255, intensity - 10); // R
-          data[pIdx + 1] = Math.min(255, intensity + 15); // G
-          data[pIdx + 2] = Math.min(255, intensity + 30); // B
-          data[pIdx + 3] = 255;
+        // Authentic 3-stop surveillance display ramp: bg -> midtone slate -> silvery ash-white
+        let r, g, b;
+        if (val < 0.5) {
+          const t = val / 0.5;
+          r = bgR + (midR - bgR) * t;
+          g = bgG + (midG - bgG) * t;
+          b = bgB + (midB - bgB) * t;
         } else {
-          // Background deep navy dark
-          data[pIdx + 0] = 16;
-          data[pIdx + 1] = 22;
-          data[pIdx + 2] = 32;
-          data[pIdx + 3] = 255;
+          const t = (val - 0.5) / 0.5;
+          r = midR + (ridgeR - midR) * t;
+          g = midG + (ridgeG - midG) * t;
+          b = midB + (ridgeB - midB) * t;
         }
+
+        data[pIdx + 0] = Math.min(255, Math.round(r * scanline));
+        data[pIdx + 1] = Math.min(255, Math.round(g * scanline));
+        data[pIdx + 2] = Math.min(255, Math.round(b * scanline));
+        data[pIdx + 3] = 255;
       } else {
-        // Inked print on off-white paper
+        // Forensic inked print on off-white paper
         const ink = Math.round((1.0 - val) * 230 + 15);
         data[pIdx + 0] = ink;
         data[pIdx + 1] = ink;
@@ -134,25 +157,40 @@ export function renderPatchToCanvas(targetCanvas, data, size, theme = 'tactical'
   const imgData = ctx.createImageData(size, size);
   const px = imgData.data;
 
+  const { bgR, bgG, bgB, midR, midG, midB, ridgeR, ridgeG, ridgeB } = PALETTE;
+
   for (let y = 0; y < size; y++) {
+    const scanline = (y % 2 === 0) ? 0.96 : 1.0;
+    const rowOffset = y * size;
+
     for (let x = 0; x < size; x++) {
-      const i = y * size + x;
+      const i = rowOffset + x;
       const val = data[i];
       const pIdx = i * 4;
 
       if (theme === 'tactical' || theme === 'cyber') {
-        if (val > 0.08) {
-          const norm = Math.min(1.0, (val - 0.08) / 0.92);
-          const intensity = Math.round(100 + norm * 155);
-
-          px[pIdx + 0] = Math.min(255, intensity - 10);
-          px[pIdx + 1] = Math.min(255, intensity + 15);
-          px[pIdx + 2] = Math.min(255, intensity + 30);
+        if (val <= 0.005) {
+          px[pIdx + 0] = Math.round(bgR * scanline);
+          px[pIdx + 1] = Math.round(bgG * scanline);
+          px[pIdx + 2] = Math.round(bgB * scanline);
           px[pIdx + 3] = 255;
         } else {
-          px[pIdx + 0] = 16;
-          px[pIdx + 1] = 22;
-          px[pIdx + 2] = 32;
+          let r, g, b;
+          if (val < 0.5) {
+            const t = val / 0.5;
+            r = bgR + (midR - bgR) * t;
+            g = bgG + (midG - bgG) * t;
+            b = bgB + (midB - bgB) * t;
+          } else {
+            const t = (val - 0.5) / 0.5;
+            r = midR + (ridgeR - midR) * t;
+            g = midG + (ridgeG - midG) * t;
+            b = midB + (ridgeB - midB) * t;
+          }
+
+          px[pIdx + 0] = Math.min(255, Math.round(r * scanline));
+          px[pIdx + 1] = Math.min(255, Math.round(g * scanline));
+          px[pIdx + 2] = Math.min(255, Math.round(b * scanline));
           px[pIdx + 3] = 255;
         }
       } else {

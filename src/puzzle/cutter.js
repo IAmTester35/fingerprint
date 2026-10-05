@@ -12,16 +12,16 @@ export function cutPuzzlePieces(width, height, processed, maskInfo, singularitie
   const realPieces = [];
   const minGap = 12; // Minimum pixel gap between any two puzzle pieces
 
-  // Quadrant anchors for 4 slots across the portrait fingerprint:
-  // 1: Top-Left (upper left flank)
-  // 2: Top-Right (upper right flank)
-  // 3: Mid-Right (middle-to-lower right delta flank)
-  // 4: Bot-Left (lower left distal flank)
+  // Exact layout quadrant anchors matching ui_expected.jpg:
+  // Slot 1: Upper-left flank (top-left)
+  // Slot 2: Upper-center / top-right flank
+  // Slot 3: Upper-right distal flank
+  // Slot 4: Center-left / core flank
   const candidateRegions = [
-    { name: 'top-left',  rx: [-0.60, -0.12], ry: [-0.68, -0.32] },
-    { name: 'top-right', rx: [ 0.12,  0.60], ry: [-0.68, -0.32] },
-    { name: 'mid-right', rx: [ 0.15,  0.62], ry: [-0.02,  0.35] },
-    { name: 'bot-left',  rx: [-0.62, -0.15], ry: [ 0.05,  0.42] }
+    { name: 'top-left',   rx: [-0.55, -0.22], ry: [-0.65, -0.35] },
+    { name: 'top-center', rx: [-0.05,  0.28], ry: [-0.75, -0.48] },
+    { name: 'top-right',  rx: [ 0.30,  0.68], ry: [-0.48, -0.18] },
+    { name: 'center-left', rx: [-0.38, -0.05], ry: [-0.22,  0.15] }
   ];
 
   for (let i = 0; i < candidateRegions.length; i++) {

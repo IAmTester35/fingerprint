@@ -198,74 +198,75 @@ body {
   align-items: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: #101620;
-  overflow: hidden;
+  background: transparent;
+  overflow: visible;
 }
 
 /* Inactive Target Slot matching 2, 3, 4 in ui_expected.jpg */
 .target-slot.inactive {
-  background: #141c26;
-  border: 1px solid rgba(80, 115, 155, 0.45);
+  background: rgba(28, 38, 52, 0.65);
+  border: 1px solid rgba(90, 115, 145, 0.55);
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
 }
 
 .slot-number {
   font-family: var(--font-hud);
-  font-size: 1.45rem;
+  font-size: 1.55rem;
   font-weight: 700;
-  color: #cfddec;
-  text-shadow: 0 0 10px rgba(0, 0, 0, 0.9);
+  color: #d8e4f0;
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.95);
   pointer-events: none;
   z-index: 2;
 }
 
 /* Active Target Slot matching Box 1 in ui_expected.jpg */
 .target-slot.active {
-  background: #2b394a;
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow: inset 0 0 16px rgba(255, 255, 255, 0.15);
+  background: rgba(135, 150, 170, 0.42);
+  border: 1px solid rgba(220, 232, 245, 0.75);
+  box-shadow: inset 0 0 18px rgba(255, 255, 255, 0.2);
 }
 
 .target-slot.active .slot-number {
   color: #ffffff;
-  text-shadow: 0 0 8px rgba(255, 255, 255, 0.95);
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.95);
 }
 
 /* Four Corner Brackets for Active Slot matching ui_expected.jpg */
 .slot-corner {
   position: absolute;
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   pointer-events: none;
-  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.85));
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.9));
   z-index: 3;
 }
 
 .slot-corner-tl {
-  top: -2px;
-  left: -2px;
-  border-top: 2px solid #ffffff;
-  border-left: 2px solid #ffffff;
+  top: -5px;
+  left: -5px;
+  border-top: 2.5px solid #ffffff;
+  border-left: 2.5px solid #ffffff;
 }
 
 .slot-corner-tr {
-  top: -2px;
-  right: -2px;
-  border-top: 2px solid #ffffff;
-  border-right: 2px solid #ffffff;
+  top: -5px;
+  right: -5px;
+  border-top: 2.5px solid #ffffff;
+  border-right: 2.5px solid #ffffff;
 }
 
 .slot-corner-bl {
-  bottom: -2px;
-  left: -2px;
-  border-bottom: 2px solid #ffffff;
-  border-left: 2px solid #ffffff;
+  bottom: -5px;
+  left: -5px;
+  border-bottom: 2.5px solid #ffffff;
+  border-left: 2.5px solid #ffffff;
 }
 
 .slot-corner-br {
-  bottom: -2px;
-  right: -2px;
-  border-bottom: 2px solid #ffffff;
-  border-right: 2px solid #ffffff;
+  bottom: -5px;
+  right: -5px;
+  border-bottom: 2.5px solid #ffffff;
+  border-right: 2.5px solid #ffffff;
 }
 
 /* Solved Target Slot */

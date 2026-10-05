@@ -20,52 +20,51 @@ export function renderFingerprint(canvas, result, options = {}) {
   ctx.fillStyle = '#101620';
   ctx.fillRect(0, 0, width, height);
 
-  // Mask out cut-out regions from the master fingerprint canvas
-  const cutoutMask = new Uint8Array(width * height);
-  if (result.puzzle && result.puzzle.realPieces) {
-    result.puzzle.realPieces.forEach(p => {
-      for (let dy = 0; dy < p.size; dy++) {
-        for (let dx = 0; dx < p.size; dx++) {
-          const py = p.y + dy;
-          const px = p.x + dx;
-          if (px >= 0 && px < width && py >= 0 && py < height) {
-            cutoutMask[py * width + px] = 1;
-          }
-        }
-      }
-    });
-  }
-
-  // Draw Ridges with realistic biometric palette matching ui_expected.jpg
+  // Draw Ridges with authentic stippled dot-matrix biometric texture matching ui_expected.jpg
   const imgData = ctx.createImageData(width, height);
   const data = imgData.data;
 
-  for (let i = 0; i < width * height; i++) {
-    const pIdx = i * 4;
-    if (cutoutMask[i] === 1) {
-      // Missing cut-out fragment: render blank dark background
-      data[pIdx + 0] = 16;
-      data[pIdx + 1] = 22;
-      data[pIdx + 2] = 32;
-      data[pIdx + 3] = 255;
-      continue;
-    }
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = y * width + x;
+      const pIdx = i * 4;
+      const val = processed[i]; // [0, 1]
 
-    const val = processed[i]; // [0, 1]
+      if (style === 'tactical' || style === 'cyber') {
+        if (val > 0.12) {
+          // Stippled dot noise factor for GTA V fingerprint aesthetic
+          const hash = Math.abs(Math.sin(x * 12.9898 + y * 78.233) * 43758.5453) % 1.0;
+          const stippleThreshold = 0.88 - val * 0.78;
 
-    if (style === 'tactical' || style === 'cyber') {
-      // Authentic silver-white / steel forensic biometric ridges matching ui_expected.jpg
-      data[pIdx + 0] = Math.round(val * 210 + 16); // R
-      data[pIdx + 1] = Math.round(val * 220 + 22); // G
-      data[pIdx + 2] = Math.round(val * 230 + 32); // B
-      data[pIdx + 3] = 255;
-    } else {
-      // Inked print on off-white paper
-      const ink = Math.round((1.0 - val) * 230 + 15);
-      data[pIdx + 0] = ink;
-      data[pIdx + 1] = ink;
-      data[pIdx + 2] = ink;
-      data[pIdx + 3] = Math.round(val * 240);
+          if (hash > stippleThreshold) {
+            // Bright silver-white stipple pixel
+            const intensity = 170 + Math.round(hash * 70);
+            data[pIdx + 0] = Math.min(255, intensity + 10); // R
+            data[pIdx + 1] = Math.min(255, intensity + 20); // G
+            data[pIdx + 2] = Math.min(255, intensity + 30); // B
+            data[pIdx + 3] = 255;
+          } else {
+            // Background deep navy dark
+            data[pIdx + 0] = 16;
+            data[pIdx + 1] = 22;
+            data[pIdx + 2] = 32;
+            data[pIdx + 3] = 255;
+          }
+        } else {
+          // Background deep navy dark
+          data[pIdx + 0] = 16;
+          data[pIdx + 1] = 22;
+          data[pIdx + 2] = 32;
+          data[pIdx + 3] = 255;
+        }
+      } else {
+        // Inked print on off-white paper
+        const ink = Math.round((1.0 - val) * 230 + 15);
+        data[pIdx + 0] = ink;
+        data[pIdx + 1] = ink;
+        data[pIdx + 2] = ink;
+        data[pIdx + 3] = Math.round(val * 240);
+      }
     }
   }
   ctx.putImageData(imgData, 0, 0);
@@ -119,21 +118,42 @@ export function renderPatchToCanvas(targetCanvas, data, size, theme = 'tactical'
   const imgData = ctx.createImageData(size, size);
   const px = imgData.data;
 
-  for (let i = 0; i < size * size; i++) {
-    const val = data[i];
-    const pIdx = i * 4;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const i = y * size + x;
+      const val = data[i];
+      const pIdx = i * 4;
 
-    if (theme === 'tactical' || theme === 'cyber') {
-      px[pIdx + 0] = Math.round(val * 210 + 16);
-      px[pIdx + 1] = Math.round(val * 220 + 22);
-      px[pIdx + 2] = Math.round(val * 230 + 32);
-      px[pIdx + 3] = 255;
-    } else {
-      const ink = Math.round((1.0 - val) * 230 + 15);
-      px[pIdx + 0] = ink;
-      px[pIdx + 1] = ink;
-      px[pIdx + 2] = ink;
-      px[pIdx + 3] = Math.round(val * 240);
+      if (theme === 'tactical' || theme === 'cyber') {
+        if (val > 0.12) {
+          const hash = Math.abs(Math.sin(x * 12.9898 + y * 78.233) * 43758.5453) % 1.0;
+          const stippleThreshold = 0.88 - val * 0.78;
+
+          if (hash > stippleThreshold) {
+            const intensity = 170 + Math.round(hash * 70);
+            px[pIdx + 0] = Math.min(255, intensity + 10);
+            px[pIdx + 1] = Math.min(255, intensity + 20);
+            px[pIdx + 2] = Math.min(255, intensity + 30);
+            px[pIdx + 3] = 255;
+          } else {
+            px[pIdx + 0] = 16;
+            px[pIdx + 1] = 22;
+            px[pIdx + 2] = 32;
+            px[pIdx + 3] = 255;
+          }
+        } else {
+          px[pIdx + 0] = 16;
+          px[pIdx + 1] = 22;
+          px[pIdx + 2] = 32;
+          px[pIdx + 3] = 255;
+        }
+      } else {
+        const ink = Math.round((1.0 - val) * 230 + 15);
+        px[pIdx + 0] = ink;
+        px[pIdx + 1] = ink;
+        px[pIdx + 2] = ink;
+        px[pIdx + 3] = Math.round(val * 240);
+      }
     }
   }
   ctx.putImageData(imgData, 0, 0);

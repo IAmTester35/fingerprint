@@ -183,7 +183,8 @@ function startNewRound() {
         style: 'tactical',
         showFlow: state.overlays.showFlow,
         showSingularities: state.overlays.showSingularities,
-        showMinutiae: state.overlays.showMinutiae
+        showMinutiae: state.overlays.showMinutiae,
+        solvedSlots: state.solvedSlots
       });
 
       // Prepare target slots on scanner
@@ -339,6 +340,13 @@ function handlePieceClick(piece, card) {
     }
 
     updateProgressUI();
+    renderFingerprint(canvas, state.currentResult, {
+      style: 'tactical',
+      showFlow: state.overlays.showFlow,
+      showSingularities: state.overlays.showSingularities,
+      showMinutiae: state.overlays.showMinutiae,
+      solvedSlots: state.solvedSlots
+    });
     renderTargetSlotsOverlay();
     updatePromptStatus();
 

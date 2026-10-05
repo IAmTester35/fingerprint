@@ -12,16 +12,16 @@ export function cutPuzzlePieces(width, height, processed, maskInfo, singularitie
   const realPieces = [];
   const minGap = 12; // Minimum pixel gap between any two puzzle pieces
 
-  // Quadrant anchors for 4 slots across the portrait fingerprint:
-  // 1: Top-Left (upper left flank)
-  // 2: Top-Right (upper right flank)
-  // 3: Mid-Right (middle-to-lower right delta flank)
-  // 4: Bot-Left (lower left distal flank)
+  // Precise layout quadrant anchors matching ui_expected.jpg layout:
+  // Slot 1: Upper-left flank inside fingerprint boundary
+  // Slot 2: Upper top-center inside fingerprint boundary
+  // Slot 3: Mid-right flank inside fingerprint boundary
+  // Slot 4: Lower-left center inside fingerprint boundary
   const candidateRegions = [
-    { name: 'top-left',  rx: [-0.60, -0.12], ry: [-0.68, -0.32] },
-    { name: 'top-right', rx: [ 0.12,  0.60], ry: [-0.68, -0.32] },
-    { name: 'mid-right', rx: [ 0.15,  0.62], ry: [-0.02,  0.35] },
-    { name: 'bot-left',  rx: [-0.62, -0.15], ry: [ 0.05,  0.42] }
+    { name: 'slot-1-upper-left',  rx: [-0.65, -0.35], ry: [-0.50, -0.25] },
+    { name: 'slot-2-upper-top',   rx: [-0.20,  0.20], ry: [-0.70, -0.45] },
+    { name: 'slot-3-mid-right',   rx: [ 0.35,  0.60], ry: [-0.25,  0.15] },
+    { name: 'slot-4-lower-left',  rx: [-0.50, -0.25], ry: [ 0.05,  0.35] }
   ];
 
   for (let i = 0; i < candidateRegions.length; i++) {
@@ -29,8 +29,7 @@ export function cutPuzzlePieces(width, height, processed, maskInfo, singularitie
     let bestPatch = null;
     let maxVariance = -1;
 
-    // Search for a high-contrast valid non-overlapping patch within this quadrant
-    for (let attempt = 0; attempt < 50; attempt++) {
+    for (let attempt = 0; attempt < 100; attempt++) {
       const rxFactor = region.rx[0] + rng.next() * (region.rx[1] - region.rx[0]);
       const ryFactor = region.ry[0] + rng.next() * (region.ry[1] - region.ry[0]);
 
@@ -52,17 +51,22 @@ export function cutPuzzlePieces(width, height, processed, maskInfo, singularitie
     }
   }
 
-  // Fallback if any region failed: rejection sampling across valid mask area with strict collision check
-  let fallbackAttempts = 0;
-  while (realPieces.length < numReal && fallbackAttempts < 300) {
-    fallbackAttempts++;
-    const px = rng.nextInt(Math.round(center.x - radii.rx * 0.70), Math.round(center.x + radii.rx * 0.70 - pieceSize));
-    const py = rng.nextInt(Math.round(center.y - radii.ry * 0.70), Math.round(center.y + radii.ry * 0.70 - pieceSize));
+  // Fallback if any region failed: placement near target candidate region without collision
+  for (let i = realPieces.length; i < numReal; i++) {
+    const region = candidateRegions[i % candidateRegions.length];
+    for (let attempt = 0; attempt < 200; attempt++) {
+      const rxFactor = region.rx[0] + (rng.next() - 0.5) * 0.4;
+      const ryFactor = region.ry[0] + (rng.next() - 0.5) * 0.4;
 
-    if (!isValidPatch(px, py, pieceSize, width, height, mask)) continue;
-    if (hasAABBCollision(px, py, pieceSize, realPieces, minGap)) continue;
+      const px = Math.round(center.x + rxFactor * radii.rx - pieceSize / 2);
+      const py = Math.round(center.y + ryFactor * radii.ry - pieceSize / 2);
 
-    realPieces.push(extractPatch(px, py, pieceSize, width, height, processed, realPieces.length + 1));
+      if (!isValidPatch(px, py, pieceSize, width, height, mask)) continue;
+      if (hasAABBCollision(px, py, pieceSize, realPieces, minGap)) continue;
+
+      realPieces.push(extractPatch(px, py, pieceSize, width, height, processed, i + 1));
+      break;
+    }
   }
 
   // Ensure 1..4 order index
@@ -81,7 +85,6 @@ export function cutPuzzlePieces(width, height, processed, maskInfo, singularitie
 
     if (!isValidPatch(px, py, pieceSize, width, height, mask)) continue;
 
-    // Check that it doesn't match any real piece closely
     const testPatch = extractPatchData(px, py, pieceSize, width, processed);
     let maxNcc = 0;
     for (const real of realPieces) {
@@ -114,15 +117,12 @@ export function cutPuzzlePieces(width, height, processed, maskInfo, singularitie
         let srcX = dx;
         let srcY = dy;
         if (mode === 0) {
-          // 180 degree rotation
           srcX = pieceSize - 1 - dx;
           srcY = pieceSize - 1 - dy;
         } else if (mode === 1) {
-          // 90 deg rotation
           srcX = pieceSize - 1 - dy;
           srcY = dx;
         } else {
-          // Horizontal flip + vertical displacement
           srcX = pieceSize - 1 - dx;
           srcY = (dy + Math.round(pieceSize * 0.3)) % pieceSize;
         }
@@ -169,14 +169,15 @@ function hasAABBCollision(px, py, size, pieces, minGap = 12) {
 }
 
 function isValidPatch(px, py, size, width, height, mask) {
-  if (px < 10 || py < 10 || px + size >= width - 10 || py + size >= height - 10) return false;
+  if (px < 5 || py < 5 || px + size >= width - 5 || py + size >= height - 5) return false;
   let count = 0;
   for (let y = py; y < py + size; y++) {
     for (let x = px; x < px + size; x++) {
-      if (mask[y * width + x] > 0.70) count++;
+      if (mask[y * width + x] > 0.05) count++;
     }
   }
-  return (count / (size * size)) >= 0.88;
+  // Require at least 20% fingerprint mask density inside patch box to allow outer rim patches without being mostly empty
+  return (count / (size * size)) >= 0.20;
 }
 
 function computePatchVariance(px, py, size, width, processed) {
@@ -238,4 +239,3 @@ function computeNCC(a, b) {
   const den = Math.sqrt(denA * denB);
   return den > 0 ? Math.abs(num / den) : 0;
 }
-

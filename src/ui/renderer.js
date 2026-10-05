@@ -4,12 +4,13 @@
  */
 
 export function renderFingerprint(canvas, result, options = {}) {
-  const { width, height, processed } = result;
+  const { width, height, processed, puzzle } = result;
   const {
     style = 'tactical',
     showFlow = false,
     showSingularities = false,
-    showMinutiae = false
+    showMinutiae = false,
+    solvedSlots = new Set()
   } = options;
 
   canvas.width = width;
@@ -20,7 +21,25 @@ export function renderFingerprint(canvas, result, options = {}) {
   ctx.fillStyle = '#101620';
   ctx.fillRect(0, 0, width, height);
 
-  // Draw Ridges with authentic stippled dot-matrix biometric texture matching ui_expected.jpg
+  // Build cutout mask lookup for unsolved target pieces
+  const cutoutMask = new Uint8Array(width * height);
+  if (puzzle && puzzle.realPieces) {
+    puzzle.realPieces.forEach(p => {
+      if (!solvedSlots.has(p.orderIndex)) {
+        const px = Math.max(0, p.x);
+        const py = Math.max(0, p.y);
+        const pw = Math.min(width - px, p.size);
+        const ph = Math.min(height - py, p.size);
+        for (let y = py; y < py + ph; y++) {
+          for (let x = px; x < px + pw; x++) {
+            cutoutMask[y * width + x] = 1;
+          }
+        }
+      }
+    });
+  }
+
+  // Draw continuous biometric ridge lines with cutouts
   const imgData = ctx.createImageData(width, height);
   const data = imgData.data;
 
@@ -28,28 +47,25 @@ export function renderFingerprint(canvas, result, options = {}) {
     for (let x = 0; x < width; x++) {
       const i = y * width + x;
       const pIdx = i * 4;
-      const val = processed[i]; // [0, 1]
+      const isCutout = cutoutMask[i] === 1;
+      let val = processed[i]; // [0, 1]
 
-      if (style === 'tactical' || style === 'cyber') {
-        if (val > 0.12) {
-          // Stippled dot noise factor for GTA V fingerprint aesthetic
-          const hash = Math.abs(Math.sin(x * 12.9898 + y * 78.233) * 43758.5453) % 1.0;
-          const stippleThreshold = 0.88 - val * 0.78;
+      if (isCutout) {
+        // Entirely cut out fingerprint ridges in missing slot regions (no see-through ridges)
+        data[pIdx + 0] = 16;
+        data[pIdx + 1] = 22;
+        data[pIdx + 2] = 32;
+        data[pIdx + 3] = 255;
+      } else if (style === 'tactical' || style === 'cyber') {
+        if (val > 0.08) {
+          // Smooth, crisp intensity for clean ridge rendering matching ui_expected.jpg
+          const norm = Math.min(1.0, (val - 0.08) / 0.92);
+          const intensity = Math.round(100 + norm * 155); // 100..255
 
-          if (hash > stippleThreshold) {
-            // Bright silver-white stipple pixel
-            const intensity = 170 + Math.round(hash * 70);
-            data[pIdx + 0] = Math.min(255, intensity + 10); // R
-            data[pIdx + 1] = Math.min(255, intensity + 20); // G
-            data[pIdx + 2] = Math.min(255, intensity + 30); // B
-            data[pIdx + 3] = 255;
-          } else {
-            // Background deep navy dark
-            data[pIdx + 0] = 16;
-            data[pIdx + 1] = 22;
-            data[pIdx + 2] = 32;
-            data[pIdx + 3] = 255;
-          }
+          data[pIdx + 0] = Math.min(255, intensity - 10); // R
+          data[pIdx + 1] = Math.min(255, intensity + 15); // G
+          data[pIdx + 2] = Math.min(255, intensity + 30); // B
+          data[pIdx + 3] = 255;
         } else {
           // Background deep navy dark
           data[pIdx + 0] = 16;
@@ -69,7 +85,7 @@ export function renderFingerprint(canvas, result, options = {}) {
   }
   ctx.putImageData(imgData, 0, 0);
 
-  // Optional Debug Overlays (only if enabled via config drawer)
+  // Optional Debug Overlays
   if (showSingularities && result.singularities) {
     result.singularities.cores.forEach(c => {
       ctx.strokeStyle = '#00f2fe';
@@ -125,22 +141,14 @@ export function renderPatchToCanvas(targetCanvas, data, size, theme = 'tactical'
       const pIdx = i * 4;
 
       if (theme === 'tactical' || theme === 'cyber') {
-        if (val > 0.12) {
-          const hash = Math.abs(Math.sin(x * 12.9898 + y * 78.233) * 43758.5453) % 1.0;
-          const stippleThreshold = 0.88 - val * 0.78;
+        if (val > 0.08) {
+          const norm = Math.min(1.0, (val - 0.08) / 0.92);
+          const intensity = Math.round(100 + norm * 155);
 
-          if (hash > stippleThreshold) {
-            const intensity = 170 + Math.round(hash * 70);
-            px[pIdx + 0] = Math.min(255, intensity + 10);
-            px[pIdx + 1] = Math.min(255, intensity + 20);
-            px[pIdx + 2] = Math.min(255, intensity + 30);
-            px[pIdx + 3] = 255;
-          } else {
-            px[pIdx + 0] = 16;
-            px[pIdx + 1] = 22;
-            px[pIdx + 2] = 32;
-            px[pIdx + 3] = 255;
-          }
+          px[pIdx + 0] = Math.min(255, intensity - 10);
+          px[pIdx + 1] = Math.min(255, intensity + 15);
+          px[pIdx + 2] = Math.min(255, intensity + 30);
+          px[pIdx + 3] = 255;
         } else {
           px[pIdx + 0] = 16;
           px[pIdx + 1] = 22;

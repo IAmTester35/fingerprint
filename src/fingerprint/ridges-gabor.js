@@ -12,11 +12,11 @@ export function synthesizeRidges(width, height, theta, freqInfo, maskInfo, param
   // 1. Build High-Resolution Precomputed Gabor Filter Bank (64 angles x 8 frequencies)
   const NUM_ANGLES = 64;
   const NUM_FREQS = 8;
-  const KERNEL_RADIUS = 10;
-  const KERNEL_SIZE = KERNEL_RADIUS * 2 + 1; // 21x21
+  const KERNEL_RADIUS = 8; // 17x17 kernel: covers 2 full cycles of ~4.2px wavelength
+  const KERNEL_SIZE = KERNEL_RADIUS * 2 + 1;
 
-  const minFreq = 1.0 / 12.5;
-  const maxFreq = 1.0 / 5.8;
+  const minFreq = 1.0 / 6.2;
+  const maxFreq = 1.0 / 3.2;
 
   const filterBank = [];
   for (let a = 0; a < NUM_ANGLES; a++) {
@@ -28,17 +28,18 @@ export function synthesizeRidges(width, height, theta, freqInfo, maskInfo, param
     for (let f = 0; f < NUM_FREQS; f++) {
       const freq = minFreq + (f / (NUM_FREQS - 1)) * (maxFreq - minFreq);
       const kernel = new Float32Array(KERNEL_SIZE * KERNEL_SIZE);
-      const sigmaU = 0.56 / freq;
-      const sigmaV = 0.72 / freq;
+      const sigmaU = 0.50 / freq; // envelope across ridge
+      const sigmaV = 0.75 / freq; // envelope along ridge
       const sigmaU2 = 2 * sigmaU * sigmaU;
       const sigmaV2 = 2 * sigmaV * sigmaV;
 
       let kIdx = 0;
       for (let ky = -KERNEL_RADIUS; ky <= KERNEL_RADIUS; ky++) {
         for (let kx = -KERNEL_RADIUS; kx <= KERNEL_RADIUS; kx++) {
-          // Rotate coordinates perpendicular to ridge orientation
-          const u = kx * cosA + ky * sinA;
-          const v = -kx * sinA + ky * cosA;
+          // u: coordinate perpendicular to ridge (oscillation across ridge)
+          // v: coordinate along ridge (continuity along ridge)
+          const u = -kx * sinA + ky * cosA;
+          const v = kx * cosA + ky * sinA;
 
           // Anisotropic even-symmetric Gabor kernel
           const envelope = Math.exp(-(u * u / sigmaU2 + v * v / sigmaV2));
@@ -78,15 +79,15 @@ export function synthesizeRidges(width, height, theta, freqInfo, maskInfo, param
   }
 
   // Minutiae & bifurcation impulse seeds
-  const seedStep = 16;
+  const seedStep = 11;
   for (let y = seedStep; y < height - seedStep; y += seedStep) {
     for (let x = seedStep; x < width - seedStep; x += seedStep) {
       const idx = y * width + x;
       if (mask[idx] > 0.35) {
-        const px = Math.min(width - 1, Math.max(0, x + rng.nextInt(-4, 4)));
-        const py = Math.min(height - 1, Math.max(0, y + rng.nextInt(-4, 4)));
+        const px = Math.min(width - 1, Math.max(0, x + rng.nextInt(-3, 3)));
+        const py = Math.min(height - 1, Math.max(0, y + rng.nextInt(-3, 3)));
         const pIdx = py * width + px;
-        imgA[pIdx] += rng.nextFloat(-0.8, 0.8);
+        imgA[pIdx] += rng.nextFloat(-0.75, 0.75);
       }
     }
   }

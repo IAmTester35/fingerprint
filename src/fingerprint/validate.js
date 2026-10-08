@@ -37,7 +37,7 @@ export function validateFingerprint(width, height, processed, theta, maskInfo, s
 
   // 2. Minutiae Extraction via Crossing Number on the skeleton
   const minutiae = [];
-  const minSpacingSq = 24 * 24;
+  const minSpacingSq = 12 * 12;
   let endingCount = 0;
   let bifurcationCount = 0;
 

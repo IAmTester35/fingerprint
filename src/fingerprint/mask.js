@@ -7,11 +7,11 @@ export function generateThumbMask(width, height, params, rng, noise) {
   const mask = new Float32Array(width * height);
   const { hand = 'right', rotation = 0 } = params;
 
-  // Anatomical thumb dimensions: elongated portrait aspect ratio (Y axis significantly longer than X axis)
+  // Anatomical thumb dimensions: natural thumb impression aspect ratio (~1.29:1)
   const cx = width * 0.5;
-  const cy = height * 0.48;
-  const rx = width * 0.25;  // 128px radius (256px wide)
-  const ry = height * 0.41; // 210px radius (420px tall) -> Aspect ratio = 1.64:1
+  const cy = height * 0.49;
+  const rx = params.rx || width * 0.275;  // ~141px radius (282px wide)
+  const ry = params.ry || (rx * (params.aspectRatio || 1.29)); // ~182px radius (364px tall) -> Aspect ratio = 1.29:1
 
   // Slant angle: natural thumb impression leans outward
   // Right thumb leans slightly right-clockwise (+8° to +14°), left thumb counter-clockwise

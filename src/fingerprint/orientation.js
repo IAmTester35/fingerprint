@@ -13,53 +13,63 @@ export function generateOrientationField(width, height, singularities, maskInfo,
   const { center, radii, rotAngle } = maskInfo;
   const { rx, ry } = radii;
 
-  // Global thumb rotation offset
-  const theta0 = rotAngle;
   const patternKey = (pattern === 'whorl' || pattern === 'plainWhorl') ? 'plainWhorl' : pattern;
+  const cosR = Math.cos(rotAngle);
+  const sinR = Math.sin(rotAngle);
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const idx = y * width + x;
 
-      // 1. Sherlock-Monro Zero-Pole Orientation in double-angle space
-      // 2θ_ZP = 2θ0 + Σ [2 * index_k * atan2(dy, dx)]
-      let angleSum2 = 0;
-
-      // Deltas contribute index +0.5 -> multiplier +1 in 2θ
-      for (let i = 0; i < deltas.length; i++) {
-        const d = deltas[i];
-        const dx = x - d.x;
-        const dy = y - d.y;
-        angleSum2 += Math.atan2(dy, dx);
-      }
-
-      // Cores: loopCore has index -0.5 (multiplier -1 in 2θ), whorlCore has index -1.0 (multiplier -2 in 2θ)
-      for (let i = 0; i < cores.length; i++) {
-        const c = cores[i];
-        const dx = x - c.x;
-        const dy = y - c.y;
-        const mult = c.type === 'whorlCore' || c.index === -1.0 ? -2.0 : -1.0;
-        angleSum2 += mult * Math.atan2(dy, dx);
-      }
-
-      const twoThetaZP = 2 * theta0 + angleSum2;
-
-      // 2. Arch model for lower base and lateral margins
-      // Transform to thumb-local space
+      // 1. Anatomical Arch baseline model (transverse curvature over distal phalanx)
       const dx = x - center.x;
       const dy = y - center.y;
-      const lx = dx * Math.cos(rotAngle) + dy * Math.sin(rotAngle);
-      const ly = -dx * Math.sin(rotAngle) + dy * Math.cos(rotAngle);
+      const lx = dx * cosR + dy * sinR;
+      const ly = -dx * sinR + dy * cosR;
 
-      // In local coordinates, arch is horizontal with downward curvature
       const normX = Math.max(-1.0, Math.min(1.0, lx / rx));
-      const normY = (ly / ry);
-      // Arch slope: steeper near the sides, flatter near the center and base
-      const archSlope = -0.52 * Math.sin(normX * Math.PI * 0.5) * (1.0 - normY * 0.28);
-      const thetaArch = rotAngle + Math.atan(archSlope);
+      const normY = ly / ry;
+
+      // Flatter arch at the base flexure crease, crowning curve over the apex
+      const archK = Math.max(0.12, 0.46 * (1.0 - normY * 0.35));
+      const thetaArchLocal = Math.atan(archK * Math.sin(normX * Math.PI * 0.5));
+      const thetaArch = rotAngle + thetaArchLocal;
       const twoThetaArch = 2 * thetaArch;
 
-      // 3. Distance to closest singularity
+      // 2. Zero-Pole Singularity Orientation (Cappelli & Sherlock-Monro model)
+      // Poincaré indices in 2θ space:
+      // Loop Core (+1/2 index) -> +1 * atan2
+      // Whorl Core (+1.0 index) -> +2 * atan2
+      // Delta (-1/2 index)      -> -1 * atan2
+      let angleSum2 = 0;
+
+      for (let i = 0; i < deltas.length; i++) {
+        const d = deltas[i];
+        angleSum2 -= Math.atan2(y - d.y, x - d.x);
+      }
+
+      for (let i = 0; i < cores.length; i++) {
+        const c = cores[i];
+        let cdx = x - c.x;
+        let cdy = y - c.y;
+
+        // Elliptical whorl core scaling to match elongated thumb anatomy
+        const isWhorl = c.type === 'whorlCore' || c.index === 1.0 || c.index === -1.0;
+        if (isWhorl) {
+          const clx = cdx * cosR + cdy * sinR;
+          const cly = -cdx * sinR + cdy * cosR;
+          const scaledCly = cly / 1.15;
+          cdx = clx * cosR - scaledCly * sinR;
+          cdy = clx * sinR + scaledCly * cosR;
+        }
+
+        const mult = isWhorl ? 2.0 : 1.0;
+        angleSum2 += mult * Math.atan2(cdy, cdx);
+      }
+
+      const twoThetaZP = twoThetaArch + angleSum2;
+
+      // 3. Distance to singularities for natural boundary transition
       let minDistSq = Infinity;
       for (let i = 0; i < cores.length; i++) {
         const c = cores[i];
@@ -71,28 +81,25 @@ export function generateOrientationField(width, height, singularities, maskInfo,
         const d2 = (x - d.x) * (x - d.x) + (y - d.y) * (y - d.y);
         if (d2 < minDistSq) minDistSq = d2;
       }
-
       const minDist = Math.sqrt(minDistSq);
 
-      // Weight for blending: inside pattern area zero-pole dominates;
-      // far away or at base, arch model blends in smoothly.
       let wZP = 1.0;
       if (patternKey === 'plainArch') {
-        wZP = 0.0; // Plain arch is purely arch field
+        wZP = 0.0;
       } else {
-        const distFade = 1.0 - smoothstep(45, rx * 0.92, minDist);
-        const yFade = 1.0 - smoothstep(-0.1, 0.65, normY);
-        wZP = Math.max(0.08, distFade * yFade);
+        const distFade = 1.0 - smoothstep(50, rx * 0.95, minDist);
+        const yFade = 1.0 - smoothstep(0.05, 0.70, normY);
+        wZP = Math.max(0.10, distFade * yFade);
       }
 
       // Double-angle vector blending:
       let vx = wZP * Math.cos(twoThetaZP) + (1 - wZP) * Math.cos(twoThetaArch);
       let vy = wZP * Math.sin(twoThetaZP) + (1 - wZP) * Math.sin(twoThetaArch);
 
-      // 4. Low-frequency organic perturbation (FBM noise) applied via vector rotation (no branch cut)
-      const noiseDamping = Math.min(1.0, minDist / 40.0);
-      const organicNoise = noise.fbm(x * 0.007, y * 0.007, 3, 0.5, 2.0);
-      const deltaTheta = organicNoise * 0.07 * noiseDamping;
+      // 4. Subtle organic papillary perturbation via double-angle rotation
+      const noiseDamping = Math.min(1.0, minDist / 35.0);
+      const organicNoise = noise.fbm(x * 0.008, y * 0.008, 3, 0.5, 2.0);
+      const deltaTheta = organicNoise * 0.05 * noiseDamping;
       const cos2D = Math.cos(2 * deltaTheta);
       const sin2D = Math.sin(2 * deltaTheta);
 
@@ -101,9 +108,9 @@ export function generateOrientationField(width, height, singularities, maskInfo,
 
       let blendedTheta = 0.5 * Math.atan2(vyRot, vxRot);
 
-      // Keep in [0, π)
-      if (blendedTheta < 0) blendedTheta += Math.PI;
-      if (blendedTheta >= Math.PI) blendedTheta -= Math.PI;
+      // Normalize into [0, π)
+      while (blendedTheta < 0) blendedTheta += Math.PI;
+      while (blendedTheta >= Math.PI) blendedTheta -= Math.PI;
 
       theta[idx] = blendedTheta;
     }

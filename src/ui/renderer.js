@@ -19,6 +19,46 @@ const PALETTE = {
   ridgeB: 218 // Authentic silvery ash-white #cad2da
 };
 
+function writeBiometricPixel(data, pIdx, val, isCutout, style, scanline) {
+  const { bgR, bgG, bgB, midR, midG, midB, ridgeR, ridgeG, ridgeB } = PALETTE;
+
+  if (isCutout || val <= 0.008) {
+    // Valleys and cutout slots stay pure dark surveillance slate
+    data[pIdx + 0] = Math.round(bgR * scanline);
+    data[pIdx + 1] = Math.round(bgG * scanline);
+    data[pIdx + 2] = Math.round(bgB * scanline);
+    data[pIdx + 3] = 255;
+    return;
+  }
+
+  if (style === 'tactical' || style === 'cyber') {
+    let r, g, b;
+    if (val < 0.40) {
+      const t = val / 0.40;
+      r = bgR + (midR - bgR) * t;
+      g = bgG + (midG - bgG) * t;
+      b = bgB + (midB - bgB) * t;
+    } else {
+      const t = (val - 0.40) / 0.60;
+      r = midR + (ridgeR - midR) * t;
+      g = midG + (ridgeG - midG) * t;
+      b = midB + (ridgeB - midB) * t;
+    }
+
+    data[pIdx + 0] = Math.min(255, Math.round(r * scanline));
+    data[pIdx + 1] = Math.min(255, Math.round(g * scanline));
+    data[pIdx + 2] = Math.min(255, Math.round(b * scanline));
+    data[pIdx + 3] = 255;
+  } else {
+    // Forensic inked print on off-white paper
+    const ink = Math.round((1.0 - val) * 230 + 15);
+    data[pIdx + 0] = ink;
+    data[pIdx + 1] = ink;
+    data[pIdx + 2] = ink;
+    data[pIdx + 3] = Math.round(val * 240);
+  }
+}
+
 export function renderFingerprint(canvas, result, options = {}) {
   const { width, height, processed, puzzle } = result;
   const {
@@ -59,8 +99,6 @@ export function renderFingerprint(canvas, result, options = {}) {
   const imgData = ctx.createImageData(width, height);
   const data = imgData.data;
 
-  const { bgR, bgG, bgB, midR, midG, midB, ridgeR, ridgeG, ridgeB } = PALETTE;
-
   for (let y = 0; y < height; y++) {
     const scanline = (y % 2 === 0) ? 0.96 : 1.0;
     const rowOffset = y * width;
@@ -70,40 +108,7 @@ export function renderFingerprint(canvas, result, options = {}) {
       const pIdx = i * 4;
       const isCutout = cutoutMask[i] === 1;
       const val = processed[i]; // [0, 1]
-
-      if (isCutout || val <= 0.005) {
-        // Cutout slot or background
-        data[pIdx + 0] = Math.round(bgR * scanline);
-        data[pIdx + 1] = Math.round(bgG * scanline);
-        data[pIdx + 2] = Math.round(bgB * scanline);
-        data[pIdx + 3] = 255;
-      } else if (style === 'tactical' || style === 'cyber') {
-        // Authentic 3-stop surveillance display ramp: bg -> midtone slate -> silvery ash-white
-        let r, g, b;
-        if (val < 0.5) {
-          const t = val / 0.5;
-          r = bgR + (midR - bgR) * t;
-          g = bgG + (midG - bgG) * t;
-          b = bgB + (midB - bgB) * t;
-        } else {
-          const t = (val - 0.5) / 0.5;
-          r = midR + (ridgeR - midR) * t;
-          g = midG + (ridgeG - midG) * t;
-          b = midB + (ridgeB - midB) * t;
-        }
-
-        data[pIdx + 0] = Math.min(255, Math.round(r * scanline));
-        data[pIdx + 1] = Math.min(255, Math.round(g * scanline));
-        data[pIdx + 2] = Math.min(255, Math.round(b * scanline));
-        data[pIdx + 3] = 255;
-      } else {
-        // Forensic inked print on off-white paper
-        const ink = Math.round((1.0 - val) * 230 + 15);
-        data[pIdx + 0] = ink;
-        data[pIdx + 1] = ink;
-        data[pIdx + 2] = ink;
-        data[pIdx + 3] = Math.round(val * 240);
-      }
+      writeBiometricPixel(data, pIdx, val, isCutout, style, scanline);
     }
   }
   ctx.putImageData(imgData, 0, 0);
@@ -157,8 +162,6 @@ export function renderPatchToCanvas(targetCanvas, data, size, theme = 'tactical'
   const imgData = ctx.createImageData(size, size);
   const px = imgData.data;
 
-  const { bgR, bgG, bgB, midR, midG, midB, ridgeR, ridgeG, ridgeB } = PALETTE;
-
   for (let y = 0; y < size; y++) {
     const scanline = (y % 2 === 0) ? 0.96 : 1.0;
     const rowOffset = y * size;
@@ -167,39 +170,7 @@ export function renderPatchToCanvas(targetCanvas, data, size, theme = 'tactical'
       const i = rowOffset + x;
       const val = data[i];
       const pIdx = i * 4;
-
-      if (theme === 'tactical' || theme === 'cyber') {
-        if (val <= 0.005) {
-          px[pIdx + 0] = Math.round(bgR * scanline);
-          px[pIdx + 1] = Math.round(bgG * scanline);
-          px[pIdx + 2] = Math.round(bgB * scanline);
-          px[pIdx + 3] = 255;
-        } else {
-          let r, g, b;
-          if (val < 0.5) {
-            const t = val / 0.5;
-            r = bgR + (midR - bgR) * t;
-            g = bgG + (midG - bgG) * t;
-            b = bgB + (midB - bgB) * t;
-          } else {
-            const t = (val - 0.5) / 0.5;
-            r = midR + (ridgeR - midR) * t;
-            g = midG + (ridgeG - midG) * t;
-            b = midB + (ridgeB - midB) * t;
-          }
-
-          px[pIdx + 0] = Math.min(255, Math.round(r * scanline));
-          px[pIdx + 1] = Math.min(255, Math.round(g * scanline));
-          px[pIdx + 2] = Math.min(255, Math.round(b * scanline));
-          px[pIdx + 3] = 255;
-        }
-      } else {
-        const ink = Math.round((1.0 - val) * 230 + 15);
-        px[pIdx + 0] = ink;
-        px[pIdx + 1] = ink;
-        px[pIdx + 2] = ink;
-        px[pIdx + 3] = Math.round(val * 240);
-      }
+      writeBiometricPixel(px, pIdx, val, false, theme, scanline);
     }
   }
   ctx.putImageData(imgData, 0, 0);

@@ -6,7 +6,7 @@ export function generateFrequencyField(width, height, singularities, maskInfo, p
   const period = new Float32Array(width * height);
   const frequency = new Float32Array(width * height);
 
-  const basePeriod = params.ridgePeriod || 8.5;
+  const basePeriod = params.ridgePeriod || 4.2;
   const { cores, deltas } = singularities;
   const { center, radii, rotAngle } = maskInfo;
 
@@ -22,13 +22,13 @@ export function generateFrequencyField(width, height, singularities, maskInfo, p
 
       let factor = 1.0;
 
-      // 1. Distance to cores (widens ridges slightly above core)
+      // 1. Distance to cores (widens ridges slightly around core recurve)
       for (let i = 0; i < cores.length; i++) {
         const c = cores[i];
         const dist = Math.hypot(x - c.x, y - c.y);
-        if (dist < 75) {
-          const w = (1.0 - dist / 75);
-          factor += w * 0.12;
+        if (dist < 48) {
+          const w = (1.0 - dist / 48);
+          factor += w * 0.10;
         }
       }
 
@@ -36,22 +36,22 @@ export function generateFrequencyField(width, height, singularities, maskInfo, p
       for (let i = 0; i < deltas.length; i++) {
         const d = deltas[i];
         const dist = Math.hypot(x - d.x, y - d.y);
-        if (dist < 65) {
-          const w = (1.0 - dist / 65);
-          factor -= w * 0.10;
+        if (dist < 42) {
+          const w = (1.0 - dist / 42);
+          factor -= w * 0.08;
         }
       }
 
-      // 3. Vertical gradient: lower base has denser ridges
+      // 3. Vertical gradient: lower base has slightly denser ridges
       if (normY > 0.1) {
-        factor -= Math.min(0.12, (normY - 0.1) * 0.15);
+        factor -= Math.min(0.08, (normY - 0.1) * 0.10);
       }
 
       // 4. Subtle organic noise
-      const n = noise.fbm(x * 0.015, y * 0.015, 2, 0.5, 2.0);
-      factor += n * 0.04;
+      const n = noise.fbm(x * 0.02, y * 0.02, 2, 0.5, 2.0);
+      factor += n * 0.03;
 
-      const T = Math.max(6.0, Math.min(12.0, basePeriod * factor));
+      const T = Math.max(3.2, Math.min(6.2, basePeriod * factor));
       period[idx] = T;
       frequency[idx] = 1.0 / T;
     }

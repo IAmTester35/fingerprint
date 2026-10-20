@@ -21,8 +21,9 @@ export function generateOrientationField(
   const coreAspect = singularities.coreAspect ?? 1.15;
   const baseArchK = singularities.archCurvature ?? 0.46;
 
-  const noiseOffsetX = (cores[0]?.x || 123) * 1.37;
-  const noiseOffsetY = (cores[0]?.y || 456) * 1.73;
+  const archPeakOffset = singularities.archPeakOffset ?? 0.0;
+  const noiseOffsetX = singularities.noiseSeedOffset?.x ?? 123.4;
+  const noiseOffsetY = singularities.noiseSeedOffset?.y ?? 567.8;
 
   const isPlainArch = pattern === "plainArch";
   const cosR = Math.cos(rotAngle);
@@ -58,8 +59,12 @@ export function generateOrientationField(
       const normY = ly * invRy;
 
       const archK = Math.max(0.12, baseArchK * (1.0 - normY * 0.35));
+      const shiftedNormX = Math.max(
+        -1.0,
+        Math.min(1.0, normX - archPeakOffset),
+      );
       const thetaArchLocal = Math.atan(
-        archK * Math.sin(normX * (Math.PI * 0.5)),
+        archK * Math.sin(shiftedNormX * (Math.PI * 0.5)),
       );
       const twoThetaArch = 2.0 * (rotAngle + thetaArchLocal);
 

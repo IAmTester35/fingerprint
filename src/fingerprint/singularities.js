@@ -164,15 +164,23 @@ export function placeSingularities(width, height, maskInfo, params, rng) {
     }
   }
 
+  const isPlainArch = patternKey === "plainArch";
+
   return {
     cores,
     deltas,
     pattern: patternKey,
     hand,
     whorlTracing: resolvedTracing,
-    // Mỗi vân tay có độ cuộn xoáy ốc và độ dẹt tâm khác nhau!
-    spiralTwist: rng.nextFloat(-0.28, 0.28),
+    spiralTwist: isPlainArch ? 0.0 : rng.nextFloat(-0.28, 0.28),
     coreAspect: rng.nextFloat(0.95, 1.38),
-    archCurvature: rng.nextFloat(0.32, 0.62),
+    archCurvature: isPlainArch
+      ? rng.nextFloat(0.52, 0.88) // Vòm nhô cao đẹp mắt cho Plain Arch
+      : rng.nextFloat(0.32, 0.62),
+    archPeakOffset: rng.nextFloat(-0.14, 0.14), // Đỉnh vòm lệch trái/phải tự nhiên
+    noiseSeedOffset: {
+      x: rng.nextFloat(50, 950),
+      y: rng.nextFloat(50, 950),
+    },
   };
 }

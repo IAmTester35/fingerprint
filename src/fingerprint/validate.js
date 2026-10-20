@@ -1,75 +1,93 @@
 /**
  * Quality validation & Minutiae extraction (Crossing Number algorithm).
- * Analyzes synthetic fingerprint fidelity, minutiae count, coherence,
- * and forensic Plain Whorl criteria (The Imaginary Line Criterion and Ridge Tracing).
+ * Analyzes synthetic fingerprint fidelity, minutiae count, local coherence,
+ * and forensic Plain Whorl criteria (The Imaginary Line Criterion and Ridge Counting).
  */
-export function validateFingerprint(width, height, processed, theta, maskInfo, singularities) {
+export function validateFingerprint(
+  width,
+  height,
+  processed,
+  theta,
+  maskInfo,
+  singularities,
+) {
   const { mask } = maskInfo;
   const numPixels = width * height;
 
-  // 1. Ridge Medial Skeleton via Non-Maximum Suppression along ridge normal
+  // 1. Directional Ridge Crest Detection (Strict 1-pixel NMS along normal)
   const skeleton = new Uint8Array(numPixels);
   for (let y = 16; y < height - 16; y++) {
+    const rowOffset = y * width;
     for (let x = 16; x < width - 16; x++) {
-      const idx = y * width + x;
-      if (mask[idx] < 0.4 || processed[idx] < 0.45) continue;
+      const idx = rowOffset + x;
+      if (mask[idx] < 0.45 || processed[idx] < 0.4) continue;
 
-      // Normal angle is theta + PI/2
-      const normalAngle = theta[idx] + Math.PI * 0.5;
-      const nx = Math.cos(normalAngle);
-      const ny = Math.sin(normalAngle);
+      // Normal vector perpendicular to ridge (theta + PI/2): cos(θ+π/2) = -sin(θ), sin(θ+π/2) = cos(θ)
+      const ang = theta[idx];
+      const nx = -Math.sin(ang);
+      const ny = Math.cos(ang);
+
+      // Quantize normal step to 8-connected neighbor (-1, 0, 1)
+      const dx = Math.round(nx);
+      const dy = Math.round(ny);
+      const stepOffset = dy * width + dx;
 
       const val = processed[idx];
-      const prevX = Math.max(0, Math.min(width - 1, Math.round(x - nx)));
-      const prevY = Math.max(0, Math.min(height - 1, Math.round(y - ny)));
-      const nextX = Math.max(0, Math.min(width - 1, Math.round(x + nx)));
-      const nextY = Math.max(0, Math.min(height - 1, Math.round(y + ny)));
+      const valPrev = processed[idx - stepOffset];
+      const valNext = processed[idx + stepOffset];
 
-      const valPrev = processed[prevY * width + prevX];
-      const valNext = processed[nextY * width + nextX];
-
-      // Local maximum perpendicular to ridge direction
-      if (val >= valPrev && val >= valNext) {
+      // Asymmetric tie-breaking (val > valPrev && val >= valNext) prevents 2-pixel thick flat plateaus!
+      if (val > valPrev && val >= valNext) {
         skeleton[idx] = 1;
       }
     }
   }
 
-  // 2. Minutiae Extraction via Crossing Number on the skeleton
+  // 2. Minutiae Extraction via Rutovitz Crossing Number (Scan every pixel, not += 2!)
   const minutiae = [];
   const minSpacingSq = 12 * 12;
   let endingCount = 0;
   let bifurcationCount = 0;
 
-  for (let y = 24; y < height - 24; y += 2) {
-    for (let x = 24; x < width - 24; x += 2) {
-      const idx = y * width + x;
-      if (mask[idx] < 0.5 || skeleton[idx] === 0) continue;
+  for (let y = 24; y < height - 24; y++) {
+    const rowOffset = y * width;
+    for (let x = 24; x < width - 24; x++) {
+      const idx = rowOffset + x;
+      if (skeleton[idx] === 0 || mask[idx] < 0.55) continue;
 
-      // 8-neighborhood
-      const p = [
-        skeleton[(y - 1) * width + x],
-        skeleton[(y - 1) * width + (x + 1)],
-        skeleton[y * width + (x + 1)],
-        skeleton[(y + 1) * width + (x + 1)],
-        skeleton[(y + 1) * width + x],
-        skeleton[(y + 1) * width + (x - 1)],
-        skeleton[y * width + (x - 1)],
-        skeleton[(y - 1) * width + (x - 1)],
-      ];
+      // 8-neighborhood clockwise around (x, y)
+      const p0 = skeleton[idx - width];
+      const p1 = skeleton[idx - width + 1];
+      const p2 = skeleton[idx + 1];
+      const p3 = skeleton[idx + width + 1];
+      const p4 = skeleton[idx + width];
+      const p5 = skeleton[idx + width - 1];
+      const p6 = skeleton[idx - 1];
+      const p7 = skeleton[idx - width - 1];
 
-      let transitions = 0;
-      for (let i = 0; i < 8; i++) {
-        transitions += Math.abs(p[i] - p[(i + 1) % 8]);
-      }
-      const cn = 0.5 * transitions;
+      // Isolated pixel check
+      const neighborSum = p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7;
+      if (neighborSum === 0) continue;
+
+      const transitions =
+        Math.abs(p0 - p1) +
+        Math.abs(p1 - p2) +
+        Math.abs(p2 - p3) +
+        Math.abs(p3 - p4) +
+        Math.abs(p4 - p5) +
+        Math.abs(p5 - p6) +
+        Math.abs(p6 - p7) +
+        Math.abs(p7 - p0);
+
+      const cn = transitions >> 1; // 0.5 * transitions
 
       let type = null;
-      if (cn === 1) type = 'ending';
-      else if (cn === 3) type = 'bifurcation';
+      // cn === 1 with neighborSum === 1 is a true ridge ending
+      if (cn === 1 && neighborSum === 1) type = "ending";
+      // cn === 3 with neighborSum >= 3 is a true ridge bifurcation
+      else if (cn === 3 && neighborSum >= 3) type = "bifurcation";
 
       if (type) {
-        // Enforce spatial separation to avoid clustering artifacts
         let tooClose = false;
         for (let m = 0; m < minutiae.length; m++) {
           const dx = minutiae[m].x - x;
@@ -81,90 +99,92 @@ export function validateFingerprint(width, height, processed, theta, maskInfo, s
         }
 
         if (!tooClose) {
-          if (type === 'ending') endingCount++;
+          if (type === "ending") endingCount++;
           else bifurcationCount++;
-          minutiae.push({ x, y, type });
+          minutiae.push({ x, y, type, angle: theta[idx] });
         }
       }
     }
   }
 
-  // 3. Orientation Coherence metric
-  let sumCos = 0;
-  let sumSin = 0;
-  let sampleCount = 0;
+  // 3. Local Orientation Coherence metric (Evaluates smoothness within local 9x9 patches)
+  let totalLocalCoherence = 0;
+  let patchCount = 0;
 
-  for (let y = 20; y < height - 20; y += 10) {
-    for (let x = 20; x < width - 20; x += 10) {
-      const idx = y * width + x;
-      if (mask[idx] > 0.5) {
-        sumCos += Math.cos(2 * theta[idx]);
-        sumSin += Math.sin(2 * theta[idx]);
-        sampleCount++;
+  for (let y = 24; y < height - 24; y += 12) {
+    for (let x = 24; x < width - 24; x += 12) {
+      const centerIdx = y * width + x;
+      if (mask[centerIdx] > 0.5) {
+        let sumCos = 0;
+        let sumSin = 0;
+        // Sample 3x3 grid around patch center (step 4px)
+        for (let dy = -4; dy <= 4; dy += 4) {
+          for (let dx = -4; dx <= 4; dx += 4) {
+            const twoAng = 2.0 * theta[(y + dy) * width + (x + dx)];
+            sumCos += Math.cos(twoAng);
+            sumSin += Math.sin(twoAng);
+          }
+        }
+        totalLocalCoherence +=
+          Math.sqrt(sumCos * sumCos + sumSin * sumSin) / 9.0;
+        patchCount++;
       }
     }
   }
 
-  const coherence = sampleCount > 0
-    ? Math.sqrt(sumCos * sumCos + sumSin * sumSin) / sampleCount
-    : 0;
+  const coherence = patchCount > 0 ? totalLocalCoherence / patchCount : 0;
+
+  // Helper: Accurate pixel-by-pixel ridge counter along a line segment
+  function countRidgesAlongLine(p1, p2) {
+    const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+    const steps = Math.max(1, Math.ceil(dist)); // 1 step per pixel prevents skipping ridges!
+    let inRidge = false;
+    let ridgeCount = 0;
+
+    // Exclude 3 pixels right at the singularity endpoints
+    const startStep = Math.min(3, Math.floor(steps * 0.1));
+    const endStep = Math.max(startStep, steps - startStep);
+
+    for (let i = startStep; i <= endStep; i++) {
+      const t = i / steps;
+      const sx = Math.round(p1.x + (p2.x - p1.x) * t);
+      const sy = Math.round(p1.y + (p2.y - p1.y) * t);
+      if (sx >= 0 && sx < width && sy >= 0 && sy < height) {
+        const isRidge = processed[sy * width + sx] > 0.35;
+        if (isRidge && !inRidge) {
+          ridgeCount++;
+          inRidge = true;
+        } else if (!isRidge && inRidge) {
+          inRidge = false;
+        }
+      }
+    }
+    return ridgeCount;
+  }
 
   // 4. Forensic Dactyloscopy: Imaginary Line Criterion for Plain Whorl
-  // Imaginary line connects Left Delta (deltas[0]) to Right Delta (deltas[1])
   let imaginaryLineCrossings = 0;
   let imaginaryLinePassed = false;
 
   if (singularities.deltas && singularities.deltas.length >= 2) {
-    const d1 = singularities.deltas[0];
-    const d2 = singularities.deltas[1];
-    const steps = 120;
-    let prevVal = -1;
-    let transitions = 0;
-
-    for (let i = 0; i <= steps; i++) {
-      const t = i / steps;
-      const sx = Math.round(d1.x + (d2.x - d1.x) * t);
-      const sy = Math.round(d1.y + (d2.y - d1.y) * t);
-      if (sx >= 0 && sx < width && sy >= 0 && sy < height) {
-        const val = skeleton[sy * width + sx];
-        if (prevVal !== -1 && val !== prevVal) {
-          transitions++;
-        }
-        prevVal = val;
-      }
-    }
-    imaginaryLineCrossings = Math.floor(transitions / 2);
-    // For Plain Whorl, the imaginary line between the 2 deltas MUST cut through inner closed ridges
+    imaginaryLineCrossings = countRidgesAlongLine(
+      singularities.deltas[0],
+      singularities.deltas[1],
+    );
     imaginaryLinePassed = imaginaryLineCrossings >= 1;
   }
 
-  // 5. Core-Delta Ridge Count (for loop patterns)
+  // 5. Core-Delta Ridge Count (for loop & whorl patterns)
   let coreDeltaRidgeCount = 0;
   if (singularities.cores.length > 0 && singularities.deltas.length > 0) {
-    const c = singularities.cores[0];
-    const d = singularities.deltas[0];
-    const steps = 100;
-    let prevVal = -1;
-    let transitions = 0;
-
-    for (let i = 0; i <= steps; i++) {
-      const t = i / steps;
-      const sx = Math.round(c.x + (d.x - c.x) * t);
-      const sy = Math.round(c.y + (d.y - c.y) * t);
-      if (sx >= 0 && sx < width && sy >= 0 && sy < height) {
-        const val = skeleton[sy * width + sx];
-        if (prevVal !== -1 && val !== prevVal) {
-          transitions++;
-        }
-        prevVal = val;
-      }
-    }
-    coreDeltaRidgeCount = Math.floor(transitions / 2);
+    coreDeltaRidgeCount = countRidgesAlongLine(
+      singularities.cores[0],
+      singularities.deltas[0],
+    );
   }
 
   const totalMinutiae = minutiae.length;
-  // Standard physiological bounds for thumbprint: 20 - 90 minutiae, coherence > 0.4
-  const passed = totalMinutiae >= 18 && coherence > 0.38;
+  const passed = totalMinutiae >= 18 && coherence > 0.75;
 
   return {
     passed,
@@ -176,7 +196,6 @@ export function validateFingerprint(width, height, processed, theta, maskInfo, s
     coreDeltaRidgeCount,
     imaginaryLineCrossings,
     imaginaryLinePassed,
-    whorlTracing: singularities.whorlTracing || null
+    whorlTracing: singularities.whorlTracing || null,
   };
 }
-

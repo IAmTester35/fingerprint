@@ -5,10 +5,11 @@ export function createNoise2D(rng) {
   const F2 = 0.5 * (Math.sqrt(3.0) - 1.0);
   const G2 = (3.0 - Math.sqrt(3.0)) / 6.0;
 
-  const grad3 = [
-    [1, 1], [-1, 1], [1, -1], [-1, -1],
-    [1, 0], [-1, 0], [0, 1], [0, -1]
-  ];
+  // Mảng phẳng 1D chứa 12 vector 2D chuẩn (tránh nested array lookup)
+  const grad2 = new Int8Array([
+    1, 1, -1, 1, 1, -1, -1, -1, 1, 0, -1, 0, 1, 0, -1, 0, 0, 1, 0, -1, 0, 1, 0,
+    -1,
+  ]);
 
   const p = new Uint8Array(256);
   for (let i = 0; i < 256; i++) p[i] = i;
@@ -20,14 +21,19 @@ export function createNoise2D(rng) {
   }
 
   const perm = new Uint8Array(512);
-  const permMod12 = new Uint8Array(512);
+  // Lưu sẵn index đã nhân 2 để tra cứu thẳng vào mảng phẳng grad2
+  const permGradIndex2 = new Uint8Array(512);
   for (let i = 0; i < 512; i++) {
     perm[i] = p[i & 255];
-    permMod12[i] = perm[i] % 8;
+    permGradIndex2[i] = (perm[i] % 12) * 2;
   }
 
   function noise2D(xin, yin) {
-    let n0 = 0, n1 = 0, n2 = 0;
+    let n0 = 0,
+      n1 = 0,
+      n2 = 0;
+
+    // Skew the input space to determine which simplex cell we're in
     const s = (xin + yin) * F2;
     const i = Math.floor(xin + s);
     const j = Math.floor(yin + s);
@@ -37,9 +43,15 @@ export function createNoise2D(rng) {
     const x0 = xin - X0;
     const y0 = yin - Y0;
 
+    // Determine which simplex we are in
     let i1, j1;
-    if (x0 > y0) { i1 = 1; j1 = 0; }
-    else { i1 = 0; j1 = 1; }
+    if (x0 > y0) {
+      i1 = 1;
+      j1 = 0;
+    } else {
+      i1 = 0;
+      j1 = 1;
+    }
 
     const x1 = x0 - i1 + G2;
     const y1 = y0 - j1 + G2;
@@ -49,28 +61,30 @@ export function createNoise2D(rng) {
     const ii = i & 255;
     const jj = j & 255;
 
+    // Calculate the contribution from the three corners
     let t0 = 0.5 - x0 * x0 - y0 * y0;
     if (t0 > 0) {
       t0 *= t0;
-      const gi0 = permMod12[ii + perm[jj]];
-      n0 = t0 * t0 * (grad3[gi0][0] * x0 + grad3[gi0][1] * y0);
+      const gi0 = permGradIndex2[ii + perm[jj]];
+      n0 = t0 * t0 * (grad2[gi0] * x0 + grad2[gi0 + 1] * y0);
     }
 
     let t1 = 0.5 - x1 * x1 - y1 * y1;
     if (t1 > 0) {
       t1 *= t1;
-      const gi1 = permMod12[ii + i1 + perm[jj + j1]];
-      n1 = t1 * t1 * (grad3[gi1][0] * x1 + grad3[gi1][1] * y1);
+      const gi1 = permGradIndex2[ii + i1 + perm[jj + j1]];
+      n1 = t1 * t1 * (grad2[gi1] * x1 + grad2[gi1 + 1] * y1);
     }
 
     let t2 = 0.5 - x2 * x2 - y2 * y2;
     if (t2 > 0) {
       t2 *= t2;
-      const gi2 = permMod12[ii + 1 + perm[jj + 1]];
-      n2 = t2 * t2 * (grad3[gi2][0] * x2 + grad3[gi2][1] * y2);
+      const gi2 = permGradIndex2[ii + 1 + perm[jj + 1]];
+      n2 = t2 * t2 * (grad2[gi2] * x2 + grad2[gi2 + 1] * y2);
     }
 
-    return 70.0 * (n0 + n1 + n2); // roughly [-1, 1]
+    // Scale the return value to fit nicely into [-1, 1]
+    return 70.0 * (n0 + n1 + n2);
   }
 
   function fbm(x, y, octaves = 3, persistence = 0.5, lacunarity = 2.0) {
@@ -84,7 +98,7 @@ export function createNoise2D(rng) {
       amplitude *= persistence;
       frequency *= lacunarity;
     }
-    return total / maxValue;
+    return maxValue === 0 ? 0 : total / maxValue;
   }
 
   return { noise2D, fbm };

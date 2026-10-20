@@ -1,278 +1,250 @@
 <!doctype html>
 <html lang="vi">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CLONER // Hacking Dấu Vân Tay GTA V</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/src/style.css" />
-  </head>
-  <body>
-    <!-- Tactical Monitor Atmospheric Effects -->
-    <div class="crt-overlay"></div>
-    <div class="scanlines"></div>
 
-    <div id="game-app">
-      <!-- Tactical Top Header Bar with Difficulty Switcher -->
-      <header class="tactical-header-hud">
-        <div class="hud-title-zone">
-          <span class="hud-sys-tag">CLONER // BIO-DECIPHER</span>
-          <span class="hud-status-live"><span class="live-dot"></span> LINK ACTIVE</span>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BIO-SCAN // Giải Mã Vân Tay</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@500;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+
+<body>
+  <div class="crt-overlay"></div>
+  <div class="scanlines"></div>
+
+  <div id="game-app">
+    <!-- Minimalist Tactical Header -->
+    <header class="tactical-header-hud">
+      <div class="hud-title-zone">
+        <span class="live-dot"></span>
+        <span class="hud-sys-tag">BIO-SCAN</span>
+      </div>
+
+      <div class="hud-telemetry-zone">
+        <div class="telemetry-pill">
+          <span>CẤP</span>
+          <strong id="hud-level-val">01</strong>
+        </div>
+        <div class="telemetry-pill">
+          <span>LỖI</span>
+          <strong id="hud-wrong-val" class="text-danger">0</strong>
+        </div>
+        <div class="mini-hud-controls">
+          <button id="btn-next-target" class="mini-btn" title="Mẫu mới">↻</button>
+          <button id="btn-toggle-config" class="mini-btn" title="Cấu hình">⚙</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Tactical Game Board -->
+    <main class="tactical-board">
+      <!-- Left Panel: Master Fingerprint Scanner -->
+      <section class="panel-scanner">
+        <div class="hud-frame-corners">
+          <span class="corner corner-tl"></span>
+          <span class="corner corner-tr"></span>
+          <span class="corner corner-bl"></span>
+          <span class="corner corner-br"></span>
         </div>
 
-        <!-- Gameplay Difficulty Switcher (Easy: 4, Normal: 6, Hard: 8) -->
-        <div class="hud-difficulty-bar" id="hud-difficulty-bar">
-          <span class="diff-title">ĐỘ KHÓ:</span>
-          <button class="diff-btn active" data-difficulty="easy" data-slots="4" title="Cấp độ Dễ - 4 mục tiêu">
-            <span class="diff-dot"></span> DỄ [4]
-          </button>
-          <button class="diff-btn" data-difficulty="normal" data-slots="6" title="Cấp độ Vừa - 6 mục tiêu">
-            <span class="diff-dot"></span> VỪA [6]
-          </button>
-          <button class="diff-btn" data-difficulty="hard" data-slots="8" title="Cấp độ Khó - 8 mục tiêu">
-            <span class="diff-dot"></span> KHÓ [8]
-          </button>
+        <div class="hud-top-ticks">
+          <span class="tick-line"></span>
+          <span class="tick-gap-notch"></span>
+          <span class="tick-line"></span>
         </div>
 
-        <div class="hud-telemetry-zone">
-          <span class="telemetry-item">CẤP: <strong id="hud-level-val">01</strong></span>
-          <span class="telemetry-item">LỖI: <strong id="hud-wrong-val">0</strong></span>
-        </div>
-      </header>
+        <div class="scanner-viewport" id="scanner-viewport">
+          <canvas id="main-canvas" width="512" height="512"></canvas>
+          <div id="target-slots-container" class="target-slots-layer"></div>
 
-      <!-- Main Tactical Game Board (Matching GTA V aesthetic) -->
-      <main class="tactical-board">
-        <!-- Left Panel: Master Fingerprint Scanner -->
-        <section class="panel-scanner">
-          <!-- Tactical HUD Outer Framing -->
-          <div class="hud-frame-corners">
-            <span class="corner corner-tl"></span>
-            <span class="corner corner-tr"></span>
-            <span class="corner corner-bl"></span>
-            <span class="corner corner-br"></span>
-          </div>
-
-          <!-- Top HUD Tick Mark (matching ui_expected.jpg) -->
-          <div class="hud-top-ticks">
-            <span class="tick-line"></span>
-            <span class="tick-gap-notch"></span>
-            <span class="tick-line"></span>
-          </div>
-
-          <!-- Master Scanner Viewport (512x512) -->
-          <div class="scanner-viewport" id="scanner-viewport">
-            <canvas id="main-canvas" width="512" height="512"></canvas>
-            
-            <!-- Target Slots (1..N) Overlay -->
-            <div id="target-slots-container" class="target-slots-layer"></div>
-
-            <!-- Loader Spinner -->
-            <div id="canvas-loader" class="canvas-loader hidden">
-              <div class="spinner"></div>
-              <span>ĐANG GIẢI MÃ DỮ LIỆU VÂN TAY...</span>
-            </div>
-          </div>
-
-          <!-- Bottom HUD Tick Mark & Telemetry Readout -->
-          <div class="hud-bottom-ticks">
-            <span class="tick-line"></span>
-            <span class="tick-coord" id="hud-coord-readout">| 118.44 // 98.24 |</span>
-            <span class="tick-line"></span>
-          </div>
-        </section>
-
-        <!-- Right Panel: Fragment Pieces Selection (matching GTA V) -->
-        <section class="panel-selection">
-          <div class="hud-frame-corners">
-            <span class="corner corner-tl"></span>
-            <span class="corner corner-tr"></span>
-            <span class="corner corner-bl"></span>
-            <span class="corner corner-br"></span>
-          </div>
-
-          <!-- Framed Prompt Header Box matching ui_expected.jpg -->
-          <div class="selection-header-frame">
-            <div class="prompt-box">
-              <h2 class="prompt-text">&gt;&gt; Vui lòng chọn dấu vân tay chính xác...</h2>
-            </div>
-            <!-- Discreet HUD controls in header -->
-            <div class="mini-hud-controls">
-              <button id="btn-next-target" class="mini-btn" title="Đổi mẫu vân tay mới">🔄</button>
-              <button id="btn-toggle-config" class="mini-btn" title="Cấu hình thuật toán">⚙️</button>
-            </div>
-          </div>
-
-          <!-- Grid of Fingerprint Fragments -->
-          <div class="selection-body">
-            <div id="pieces-grid" class="pieces-grid"></div>
-          </div>
-
-          <!-- Feedback Alert Bar -->
-          <div id="alert-banner" class="alert-banner hidden">
-            <span id="alert-text"></span>
-          </div>
-        </section>
-      </main>
-
-      <!-- Bottom Progress Bar (matching the bottom bar in ui_expected.jpg) -->
-      <footer class="tactical-footer">
-        <div class="progress-track-wrapper">
-          <div class="progress-track">
-            <div class="progress-bar-fill" id="progress-fill" style="width: 0%;"></div>
-            <div class="progress-glow-point" id="progress-glow" style="left: 0%;"></div>
+          <div id="canvas-loader" class="canvas-loader hidden">
+            <div class="spinner"></div>
           </div>
         </div>
 
-        <div class="footer-meta">
-          <div class="meta-item">
-            <span class="meta-label">TIẾN ĐỘ:</span>
-            <span class="meta-val highlight" id="progress-text">0 / 4 VỊ TRÍ (0%)</span>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">TRẠNG THÁI:</span>
-            <span class="meta-val" id="system-status-text">CHỌN MẢNH CHO VỊ TRÍ #1</span>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">LỖI:</span>
-            <span class="meta-val text-danger" id="score-wrong">0</span>
-          </div>
+        <div class="hud-bottom-ticks">
+          <span class="tick-line"></span>
+          <span class="tick-coord" id="hud-coord-readout">X: 256.0 // Y: 256.0</span>
+          <span class="tick-line"></span>
         </div>
-      </footer>
+      </section>
+
+      <!-- Right Panel: 3x3 Fragment Grid -->
+      <section class="panel-selection">
+        <div class="hud-frame-corners">
+          <span class="corner corner-tl"></span>
+          <span class="corner corner-tr"></span>
+          <span class="corner corner-bl"></span>
+          <span class="corner corner-br"></span>
+        </div>
+
+        <div class="selection-header-frame">
+          <span class="meta-val" id="system-status-text">MỤC TIÊU #1</span>
+          <span class="meta-val highlight" id="progress-text">0 / 8</span>
+        </div>
+
+        <div class="selection-body">
+          <div id="pieces-grid" class="pieces-grid"></div>
+        </div>
+
+        <div id="alert-banner" class="alert-banner hidden">
+          <span id="alert-text"></span>
+        </div>
+      </section>
+    </main>
+
+    <!-- Clean Progress Track Footer -->
+    <footer class="tactical-footer">
+      <div class="progress-track">
+        <div class="progress-bar-fill" id="progress-fill" style="width: 0%;"></div>
+        <div class="progress-glow-point" id="progress-glow" style="left: 0%;"></div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Compact Victory Modal -->
+  <div id="victory-modal" class="modal-backdrop hidden">
+    <div class="victory-card">
+      <div class="victory-icon">✓</div>
+      <h2>MỞ KHÓA THÀNH CÔNG</h2>
+
+      <div class="victory-stats">
+        <div class="stat-box">
+          <span>CẤP</span>
+          <strong id="win-level">01</strong>
+        </div>
+        <div class="stat-box">
+          <span>CHÍNH XÁC</span>
+          <strong id="win-accuracy" class="text-success">100%</strong>
+        </div>
+        <div class="stat-box">
+          <span>LỖI</span>
+          <strong id="win-wrong" class="text-danger">0</strong>
+        </div>
+      </div>
+
+      <button id="btn-next-level" class="btn-tactical-primary">
+        TIẾP TỤC
+      </button>
     </div>
+  </div>
 
-    <!-- Victory Modal Overlay -->
-    <div id="victory-modal" class="modal-backdrop hidden">
-      <div class="victory-card">
-        <div class="victory-header">
-          <div class="victory-icon">✓</div>
-          <h2>TRUY CẬP ĐÃ ĐƯỢC CẤP</h2>
-          <div class="victory-sub">VÂN TAY ĐÃ ĐƯỢC XÁC THỰC THÀNH CÔNG</div>
-        </div>
-        <div class="victory-stats">
-          <div class="stat-row">
-            <span>CẤP ĐỘ HOÀN THÀNH:</span>
-            <strong id="win-level">01</strong>
-          </div>
-          <div class="stat-row">
-            <span>ĐỘ KHÓ:</span>
-            <strong id="win-diff" class="text-success">DỄ // 4 MỤC TIÊU</strong>
-          </div>
-          <div class="stat-row">
-            <span>SỐ LẦN CHỌN SAI:</span>
-            <strong id="win-wrong" class="text-danger">0</strong>
-          </div>
-          <div class="stat-row">
-            <span>ĐỘ CHÍNH XÁC:</span>
-            <strong id="win-accuracy" class="text-success">100%</strong>
-          </div>
-        </div>
-        <button id="btn-next-level" class="btn-tactical-primary">
-          TIẾP TỤC // VÂN TAY TIẾP THEO
-        </button>
-      </div>
+  <!-- Slide-over Configuration Drawer -->
+  <aside id="config-drawer" class="config-drawer">
+    <div class="drawer-header">
+      <h3>THÔNG SỐ</h3>
+      <button id="btn-close-drawer" class="btn-close">×</button>
     </div>
-
-    <!-- Slide-over Configuration Drawer (Algorithms & Settings) -->
-    <aside id="config-drawer" class="config-drawer">
-      <div class="drawer-header">
-        <h3>⚙️ CẤU HÌNH THUẬT TOÁN</h3>
-        <button id="btn-close-drawer" class="btn-close">×</button>
+    <div class="drawer-content">
+      <div class="form-group">
+        <label for="seed-input">Seed</label>
+        <div class="input-row">
+          <input type="number" id="seed-input" value="428913" />
+          <button id="btn-random-seed" class="btn-sub" title="Ngẫu nhiên">🎲</button>
+        </div>
       </div>
-      <div class="drawer-content">
-        <div class="form-group">
-          <label>Cấp độ chơi (Độ khó)</label>
-          <div class="segmented-control" id="drawer-difficulty-control">
-            <button class="seg-btn active" data-difficulty="easy">Dễ (4)</button>
-            <button class="seg-btn" data-difficulty="normal">Vừa (6)</button>
-            <button class="seg-btn" data-difficulty="hard">Khó (8)</button>
-          </div>
-        </div>
-        <div class="form-group">
-          <label for="seed-input">Seed ngẫu nhiên</label>
-          <div class="input-row">
-            <input type="number" id="seed-input" value="428913" />
-            <button id="btn-random-seed" class="btn-sub">🎲</button>
-          </div>
-        </div>
-        <div class="form-group">
-          <label>Ngón cái</label>
-          <div class="segmented-control" id="hand-control">
-            <button class="seg-btn active" data-hand="right">Phải (Right)</button>
-            <button class="seg-btn" data-hand="left">Trái (Left)</button>
-          </div>
-        </div>
-        <div class="form-group">
-          <label for="pattern-select">Kiểu vân tay (Henry)</label>
-          <select id="pattern-select" class="select-input">
-            <option value="ulnarLoop" selected>Ulnar Loop (Vân móc)</option>
-            <option value="radialLoop">Radial Loop (Vân móc quay)</option>
-            <option value="whorl">Whorl (Vân xoáy)</option>
-            <option value="doubleLoop">Double Loop (Xoáy đôi)</option>
-            <option value="centralPocket">Central Pocket (Túi tâm)</option>
-            <option value="tentedArch">Tented Arch (Cung lều)</option>
-            <option value="plainArch">Plain Arch (Cung phẳng)</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <div class="label-row">
-            <label for="period-slider">Chu kỳ vân T₀</label>
-            <span id="period-val" class="mono-val">4.2 px</span>
-          </div>
-          <input type="range" id="period-slider" min="3.2" max="6.5" step="0.1" value="4.2" />
-        </div>
-        <div class="form-group">
-          <div class="label-row">
-            <label for="iterations-slider">Vòng lặp Gabor</label>
-            <span id="iterations-val" class="mono-val">9 vòng</span>
-          </div>
-          <input type="range" id="iterations-slider" min="4" max="16" step="1" value="9" />
-        </div>
-        <div class="form-group">
-          <div class="label-row">
-            <label for="breaks-slider">Độ xước / Đứt gãy (Micro-breaks)</label>
-            <span id="breaks-val" class="mono-val">40%</span>
-          </div>
-          <input type="range" id="breaks-slider" min="0" max="100" step="5" value="40" />
-        </div>
-        <div class="form-group">
-          <div class="label-row">
-            <label for="grain-slider">Hạt mực sinh trắc (Dermal Grain)</label>
-            <span id="grain-val" class="mono-val">32%</span>
-          </div>
-          <input type="range" id="grain-slider" min="0" max="100" step="5" value="32" />
-        </div>
-        <div class="form-group">
-          <div class="label-row">
-            <label for="pores-slider">Tuyến mồ hôi (Sweat Pores)</label>
-            <span id="pores-val" class="mono-val">35%</span>
-          </div>
-          <input type="range" id="pores-slider" min="0" max="100" step="5" value="35" />
-        </div>
-        <div class="form-group">
-          <label>Lớp phủ gỡ lỗi (Debug Overlays)</label>
-          <div class="checkbox-grid">
-            <label class="checkbox-item">
-              <input type="checkbox" id="check-singularities" />
-              <span>Điểm kỳ dị (Core / Delta)</span>
-            </label>
-            <label class="checkbox-item">
-              <input type="checkbox" id="check-flow" />
-              <span>Trường hướng vân (Flow θ)</span>
-            </label>
-            <label class="checkbox-item">
-              <input type="checkbox" id="check-minutiae" />
-              <span>Minutiae (Rẽ nhánh)</span>
-            </label>
-          </div>
-        </div>
-        <button id="btn-apply-config" class="btn-tactical-primary" style="margin-top: 15px;">
-          ÁP DỤNG & TỔNG HỢP LẠI
-        </button>
-      </div>
-    </aside>
 
-    <script type="module" src="/src/main.js"></script>
-  </body>
+      <div class="form-group">
+        <label>Ngón tay</label>
+        <div class="segmented-control" id="hand-control">
+          <button class="seg-btn active" data-hand="right">Phải</button>
+          <button class="seg-btn" data-hand="left">Trái</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="pattern-select">Kiểu vân</label>
+        <select id="pattern-select" class="select-input">
+          <option value="plainWhorl" selected>Whorl (Xoáy tròn)</option>
+          <option value="ulnarLoop">Ulnar Loop (Móc trụ)</option>
+          <option value="radialLoop">Radial Loop (Móc quay)</option>
+          <option value="doubleLoop">Double Loop (Xoáy kép)</option>
+          <option value="centralPocket">Central Pocket (Túi tâm)</option>
+          <option value="tentedArch">Tented Arch (Cung lều)</option>
+          <option value="plainArch">Plain Arch (Cung phẳng)</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="whorl-tracing-group">
+        <label for="tracing-select">Truy vết Whorl</label>
+        <select id="tracing-select" class="select-input">
+          <option value="random" selected>Ngẫu nhiên</option>
+          <option value="inner">Inner (Trong)</option>
+          <option value="meet">Meet (Gặp)</option>
+          <option value="outer">Outer (Ngoài)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <div class="label-row">
+          <label for="period-slider">Chu kỳ vân</label>
+          <span id="period-val" class="mono-val">4.2 px</span>
+        </div>
+        <input type="range" id="period-slider" min="3.2" max="6.2" step="0.1" value="4.2" />
+      </div>
+
+      <div class="form-group">
+        <div class="label-row">
+          <label for="iterations-slider">Độ hội tụ Gabor</label>
+          <span id="iterations-val" class="mono-val">9 vòng</span>
+        </div>
+        <input type="range" id="iterations-slider" min="4" max="16" step="1" value="9" />
+      </div>
+
+      <div class="form-group">
+        <div class="label-row">
+          <label for="breaks-slider">Độ đứt gãy</label>
+          <span id="breaks-val" class="mono-val">35%</span>
+        </div>
+        <input type="range" id="breaks-slider" min="0" max="100" step="5" value="35" />
+      </div>
+
+      <div class="form-group">
+        <div class="label-row">
+          <label for="grain-slider">Độ hạt da</label>
+          <span id="grain-val" class="mono-val">35%</span>
+        </div>
+        <input type="range" id="grain-slider" min="0" max="100" step="5" value="35" />
+      </div>
+
+      <div class="form-group">
+        <div class="label-row">
+          <label for="pores-slider">Lỗ chân lông</label>
+          <span id="pores-val" class="mono-val">40%</span>
+        </div>
+        <input type="range" id="pores-slider" min="0" max="100" step="5" value="40" />
+      </div>
+
+      <div class="form-group">
+        <label>Hiển thị lớp phủ</label>
+        <div class="checkbox-grid">
+          <label class="checkbox-item">
+            <input type="checkbox" id="check-singularities" />
+            <span>Tâm &amp; Giao điểm (Core / Delta)</span>
+          </label>
+          <label class="checkbox-item">
+            <input type="checkbox" id="check-flow" />
+            <span>Hướng đường vân (θ)</span>
+          </label>
+          <label class="checkbox-item">
+            <input type="checkbox" id="check-minutiae" />
+            <span>Điểm đặc trưng (Minutiae)</span>
+          </label>
+        </div>
+      </div>
+
+      <button id="btn-apply-config" class="btn-tactical-primary">
+        ÁP DỤNG
+      </button>
+    </div>
+  </aside>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+
 </html>

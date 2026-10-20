@@ -1,178 +1,219 @@
 /**
- * Puzzle Cutter and Decoy Generator.
- * Supports Easy (4 slots), Normal (6 slots), and Hard (8 slots) matching the
- * canonical tactical layout seen in GTA V fingerprint hack.
- * Guarantees 100% placement of all requested target pieces without AABB overlaps.
+ * Puzzle Cutter and Decoy Generator (Hard Mode Canonical Layout).
+ * Strictly places 8 target pieces (56x56) + 1 decoy piece = 9 pieces (3x3 grid)
+ * without AABB overlaps.
  */
 
-export const DIFFICULTY_PRESETS = {
-  easy: {
-    numReal: 4,
-    pieceSize: 72,
-    minGap: 8,
-    numDecoys: 2,
-    label: 'DỄ // 4 MỤC TIÊU',
-    regions: [
-      { name: 'slot-1-upper-left',  rx: [-0.60, -0.30], ry: [-0.55, -0.25] },
-      { name: 'slot-2-top-center',  rx: [-0.15,  0.15], ry: [-0.70, -0.42] },
-      { name: 'slot-3-mid-right',   rx: [ 0.28,  0.58], ry: [-0.30,  0.05] },
-      { name: 'slot-4-lower-left',  rx: [-0.52, -0.22], ry: [ 0.10,  0.42] }
-    ]
-  },
-  normal: {
-    numReal: 6,
-    pieceSize: 64,
-    minGap: 6,
-    numDecoys: 2,
-    label: 'VỪA // 6 MỤC TIÊU',
-    regions: [
-      { name: 'slot-1-upper-left',   rx: [-0.58, -0.28], ry: [-0.58, -0.30] },
-      { name: 'slot-2-top-center',   rx: [-0.15,  0.15], ry: [-0.72, -0.45] },
-      { name: 'slot-3-upper-right',  rx: [ 0.28,  0.58], ry: [-0.48, -0.20] },
-      { name: 'slot-4-mid-left',     rx: [-0.58, -0.28], ry: [-0.15,  0.15] },
-      { name: 'slot-5-center',       rx: [-0.05,  0.22], ry: [-0.12,  0.18] },
-      { name: 'slot-6-lower-left',   rx: [-0.58, -0.25], ry: [ 0.22,  0.50] }
-    ]
-  },
-  hard: {
-    numReal: 8,
-    pieceSize: 56,
-    minGap: 5,
-    numDecoys: 1,
-    label: 'KHÓ // 8 MỤC TIÊU',
-    regions: [
-      { name: 'slot-1-upper-left',    rx: [-0.58, -0.28], ry: [-0.60, -0.32] },
-      { name: 'slot-2-top-center',    rx: [-0.15,  0.15], ry: [-0.72, -0.46] },
-      { name: 'slot-3-upper-right',   rx: [ 0.26,  0.56], ry: [-0.52, -0.22] },
-      { name: 'slot-4-mid-left',      rx: [-0.58, -0.28], ry: [-0.18,  0.12] },
-      { name: 'slot-5-center',        rx: [-0.08,  0.18], ry: [-0.12,  0.15] },
-      { name: 'slot-6-lower-left',    rx: [-0.58, -0.26], ry: [ 0.20,  0.48] },
-      { name: 'slot-7-bottom-center', rx: [-0.15,  0.15], ry: [ 0.35,  0.62] },
-      { name: 'slot-8-lower-right',   rx: [ 0.22,  0.52], ry: [ 0.20,  0.48] }
-    ]
-  }
+export const HARD_CONFIG = {
+  numReal: 8,
+  pieceSize: 56,
+  minGap: 5,
+  numDecoys: 1,
+  label: "KHÓ // 8 MỤC TIÊU",
+  regions: [
+    { name: "slot-1-upper-left", rx: [-0.58, -0.28], ry: [-0.6, -0.32] },
+    { name: "slot-2-top-center", rx: [-0.15, 0.15], ry: [-0.72, -0.46] },
+    { name: "slot-3-upper-right", rx: [0.26, 0.56], ry: [-0.52, -0.22] },
+    { name: "slot-4-mid-left", rx: [-0.58, -0.28], ry: [-0.18, 0.12] },
+    { name: "slot-5-center", rx: [-0.08, 0.18], ry: [-0.12, 0.15] },
+    { name: "slot-6-lower-left", rx: [-0.58, -0.26], ry: [0.2, 0.48] },
+    { name: "slot-7-bottom-center", rx: [-0.15, 0.15], ry: [0.35, 0.62] },
+    { name: "slot-8-lower-right", rx: [0.22, 0.52], ry: [0.2, 0.48] },
+  ],
 };
 
-export function getDifficultyConfig(numReal = 4, difficulty = null) {
-  if (difficulty && DIFFICULTY_PRESETS[difficulty]) {
-    return DIFFICULTY_PRESETS[difficulty];
-  }
-  if (numReal <= 4) return DIFFICULTY_PRESETS.easy;
-  if (numReal <= 6) return DIFFICULTY_PRESETS.normal;
-  return DIFFICULTY_PRESETS.hard;
+// Kept for backward-compatibility if imported elsewhere, locked to Hard mode
+export const DIFFICULTY_PRESETS = {
+  easy: HARD_CONFIG,
+  normal: HARD_CONFIG,
+  hard: HARD_CONFIG,
+};
+
+export function getDifficultyConfig() {
+  return HARD_CONFIG;
 }
 
-export function cutPuzzlePieces(width, height, processed, maskInfo, singularities, params = {}, rng) {
-  const reqNumReal = params.numReal || 4;
-  const config = getDifficultyConfig(reqNumReal, params.difficulty);
-  const numReal = params.numReal !== undefined ? params.numReal : config.numReal;
-  const pieceSize = params.pieceSize || config.pieceSize;
-  const minGap = params.minGap || config.minGap;
+export function cutPuzzlePieces(
+  width,
+  height,
+  processed,
+  maskInfo,
+  singularities,
+  params = {},
+  rng,
+) {
+  const numReal = HARD_CONFIG.numReal;
+  const pieceSize = params.pieceSize || HARD_CONFIG.pieceSize;
+  const minGap = params.minGap ?? HARD_CONFIG.minGap;
+  const numDecoys = params.numDecoys ?? HARD_CONFIG.numDecoys;
+  const regions = HARD_CONFIG.regions;
+
   const { mask, center, radii } = maskInfo;
-
+  const halfPiece = pieceSize * 0.5;
   const realPieces = [];
-  const regions = config.regions;
 
-  // Pass 1: Place each target in its designated candidate region
-  for (let i = 0; i < numReal && i < regions.length; i++) {
+  // Pass 1: Place each of the 8 targets in its designated candidate region
+  for (let i = 0; i < numReal; i++) {
     const region = regions[i];
+    const rxMin = region.rx[0];
+    const rxSpan = region.rx[1] - rxMin;
+    const ryMin = region.ry[0];
+    const rySpan = region.ry[1] - ryMin;
+
     let bestPatch = null;
     let maxVariance = -1;
 
     for (let attempt = 0; attempt < 100; attempt++) {
-      const rxFactor = region.rx[0] + rng.next() * (region.rx[1] - region.rx[0]);
-      const ryFactor = region.ry[0] + rng.next() * (region.ry[1] - region.ry[0]);
+      const rxFactor = rxMin + rng.next() * rxSpan;
+      const ryFactor = ryMin + rng.next() * rySpan;
 
-      const px = Math.round(center.x + rxFactor * radii.rx - pieceSize / 2);
-      const py = Math.round(center.y + ryFactor * radii.ry - pieceSize / 2);
+      const px = Math.round(center.x + rxFactor * radii.rx - halfPiece);
+      const py = Math.round(center.y + ryFactor * radii.ry - halfPiece);
 
       if (!isValidPatch(px, py, pieceSize, width, height, mask)) continue;
       if (hasAABBCollision(px, py, pieceSize, realPieces, minGap)) continue;
 
-      const variance = computePatchVariance(px, py, pieceSize, width, processed);
+      const variance = computePatchVariance(
+        px,
+        py,
+        pieceSize,
+        width,
+        processed,
+      );
       if (variance > maxVariance) {
         maxVariance = variance;
-        bestPatch = { px, py };
+        bestPatch = { px, py, slotIndex: i };
       }
     }
 
     if (bestPatch) {
-      realPieces.push(extractPatch(bestPatch.px, bestPatch.py, pieceSize, width, height, processed, realPieces.length + 1));
+      realPieces.push(
+        extractPatch(
+          bestPatch.px,
+          bestPatch.py,
+          pieceSize,
+          width,
+          processed,
+          bestPatch.slotIndex,
+        ),
+      );
     }
   }
 
   // Pass 2: Relaxed boundary search for any unplaced target slot
   if (realPieces.length < numReal) {
     const relaxedMinGap = Math.max(3, minGap - 2);
-    for (let i = realPieces.length; i < numReal; i++) {
-      const region = regions[i % regions.length];
+    const placedSlots = new Set(realPieces.map((p) => p.slotIndex));
+
+    for (let i = 0; i < numReal && realPieces.length < numReal; i++) {
+      if (placedSlots.has(i)) continue;
+
+      const region = regions[i];
+      const rxMid = (region.rx[0] + region.rx[1]) * 0.5;
+      const ryMid = (region.ry[0] + region.ry[1]) * 0.5;
+      const rxSpan = (region.rx[1] - region.rx[0]) * 1.6;
+      const rySpan = (region.ry[1] - region.ry[0]) * 1.6;
+
       let bestPatch = null;
       let maxVariance = -1;
 
       for (let attempt = 0; attempt < 150; attempt++) {
-        const rxMid = (region.rx[0] + region.rx[1]) / 2;
-        const ryMid = (region.ry[0] + region.ry[1]) / 2;
-        const rxSpan = (region.rx[1] - region.rx[0]) * 1.6;
-        const rySpan = (region.ry[1] - region.ry[0]) * 1.6;
-
         const rxFactor = rxMid + (rng.next() - 0.5) * rxSpan;
         const ryFactor = ryMid + (rng.next() - 0.5) * rySpan;
 
-        const px = Math.round(center.x + rxFactor * radii.rx - pieceSize / 2);
-        const py = Math.round(center.y + ryFactor * radii.ry - pieceSize / 2);
+        const px = Math.round(center.x + rxFactor * radii.rx - halfPiece);
+        const py = Math.round(center.y + ryFactor * radii.ry - halfPiece);
 
         if (!isValidPatch(px, py, pieceSize, width, height, mask)) continue;
-        if (hasAABBCollision(px, py, pieceSize, realPieces, relaxedMinGap)) continue;
+        if (hasAABBCollision(px, py, pieceSize, realPieces, relaxedMinGap))
+          continue;
 
-        const variance = computePatchVariance(px, py, pieceSize, width, processed);
+        const variance = computePatchVariance(
+          px,
+          py,
+          pieceSize,
+          width,
+          processed,
+        );
         if (variance > maxVariance) {
           maxVariance = variance;
-          bestPatch = { px, py };
+          bestPatch = { px, py, slotIndex: i };
         }
       }
 
       if (bestPatch) {
-        realPieces.push(extractPatch(bestPatch.px, bestPatch.py, pieceSize, width, height, processed, realPieces.length + 1));
+        realPieces.push(
+          extractPatch(
+            bestPatch.px,
+            bestPatch.py,
+            pieceSize,
+            width,
+            processed,
+            bestPatch.slotIndex,
+          ),
+        );
       }
     }
   }
 
-  // Pass 3: Global adaptive grid scan to strictly guarantee exactly numReal pieces
+  // Pass 3: Global adaptive grid scan to strictly guarantee all 8 pieces
   if (realPieces.length < numReal) {
     const finalMinGap = 3;
     const step = 12;
     const startX = Math.max(10, Math.round(center.x - radii.rx * 0.8));
-    const endX = Math.min(width - pieceSize - 10, Math.round(center.x + radii.rx * 0.8));
+    const endX = Math.min(
+      width - pieceSize - 10,
+      Math.round(center.x + radii.rx * 0.8),
+    );
     const startY = Math.max(10, Math.round(center.y - radii.ry * 0.8));
-    const endY = Math.min(height - pieceSize - 10, Math.round(center.y + radii.ry * 0.8));
+    const endY = Math.min(
+      height - pieceSize - 10,
+      Math.round(center.y + radii.ry * 0.8),
+    );
 
-    for (let py = startY; py < endY && realPieces.length < numReal; py += step) {
-      for (let px = startX; px < endX && realPieces.length < numReal; px += step) {
+    for (
+      let py = startY;
+      py < endY && realPieces.length < numReal;
+      py += step
+    ) {
+      for (
+        let px = startX;
+        px < endX && realPieces.length < numReal;
+        px += step
+      ) {
         if (!isValidPatch(px, py, pieceSize, width, height, mask)) continue;
-        if (hasAABBCollision(px, py, pieceSize, realPieces, finalMinGap)) continue;
+        if (hasAABBCollision(px, py, pieceSize, realPieces, finalMinGap))
+          continue;
 
-        realPieces.push(extractPatch(px, py, pieceSize, width, height, processed, realPieces.length + 1));
+        realPieces.push(
+          extractPatch(px, py, pieceSize, width, processed, realPieces.length),
+        );
       }
     }
   }
 
-  // Ensure consecutive orderIndex 1..N
-  realPieces.forEach((p, idx) => {
-    p.orderIndex = idx + 1;
-  });
+  // Sort pieces spatially (top-to-bottom, left-to-right) and assign clean 1..8 IDs
+  realPieces.sort((a, b) => (Math.abs(a.y - b.y) > 28 ? a.y - b.y : a.x - b.x));
+  for (let i = 0; i < realPieces.length; i++) {
+    realPieces[i].orderIndex = i + 1;
+    realPieces[i].id = "real-" + (i + 1);
+    delete realPieces[i].slotIndex;
+  }
 
-  // Calculate appropriate decoy count
-  // Easy: 4 real + 2 decoys = 6 pieces (2 rows of 3)
-  // Normal: 6 real + 2 decoys = 8 pieces (3 rows of 3)
-  // Hard: 8 real + 1 decoy = 9 pieces (3 rows of 3)
-  const numDecoys = params.numDecoys !== undefined ? params.numDecoys : config.numDecoys;
+  // Generate Decoy Pieces (Default Hard: 1 decoy -> 8 + 1 = 9 total pieces)
   const decoyPieces = [];
 
-  // Strategy A: Distinct valid fingerprint regions with NCC < 0.58
+  // Strategy A: Distinct valid fingerprint regions with low correlation (NCC < 0.58)
   const rxMin = Math.round(center.x - radii.rx * 0.65);
-  const rxMax = Math.max(rxMin + 1, Math.round(center.x + radii.rx * 0.65 - pieceSize));
+  const rxMax = Math.max(
+    rxMin + 1,
+    Math.round(center.x + radii.rx * 0.65 - pieceSize),
+  );
   const ryMin = Math.round(center.y - radii.ry * 0.65);
-  const ryMax = Math.max(ryMin + 1, Math.round(center.y + radii.ry * 0.65 - pieceSize));
+  const ryMax = Math.max(
+    ryMin + 1,
+    Math.round(center.y + radii.ry * 0.65 - pieceSize),
+  );
 
   for (let d = 0; d < 80 && decoyPieces.length < numDecoys; d++) {
     const px = rng.nextInt(rxMin, rxMax);
@@ -182,24 +223,24 @@ export function cutPuzzlePieces(width, height, processed, maskInfo, singularitie
 
     const testPatch = extractPatchData(px, py, pieceSize, width, processed);
     let maxNcc = 0;
-    for (const real of realPieces) {
-      const ncc = computeNCC(testPatch, real.data);
+    for (let i = 0; i < realPieces.length; i++) {
+      const ncc = computeNCC(testPatch, realPieces[i].data);
       if (ncc > maxNcc) maxNcc = ncc;
     }
 
     if (maxNcc < 0.58) {
       decoyPieces.push({
-        id: 'decoy-' + (decoyPieces.length + 1),
+        id: "decoy-" + (decoyPieces.length + 1),
         isDecoy: true,
         size: pieceSize,
         data: testPatch,
-        maxNcc: Number(maxNcc.toFixed(3))
+        maxNcc: Number(maxNcc.toFixed(3)),
       });
     }
   }
 
-  // Strategy B: Subtle transformations of real pieces to complete decoy set
-  let transformIdx = 0;
+  // Strategy B: Seamless rigid transformations (180° rot, 90° rot, horizontal flip) of real pieces
+  let transformIdx = rng.nextInt(0, Math.max(0, realPieces.length - 1));
   while (decoyPieces.length < numDecoys && realPieces.length > 0) {
     const basePiece = realPieces[transformIdx % realPieces.length];
     transformIdx++;
@@ -208,35 +249,38 @@ export function cutPuzzlePieces(width, height, processed, maskInfo, singularitie
     const mode = decoyPieces.length % 3;
 
     for (let dy = 0; dy < pieceSize; dy++) {
+      const rowOffset = dy * pieceSize;
       for (let dx = 0; dx < pieceSize; dx++) {
-        let srcX = dx;
-        let srcY = dy;
+        let srcX, srcY;
         if (mode === 0) {
+          // 180-degree rotation
           srcX = pieceSize - 1 - dx;
           srcY = pieceSize - 1 - dy;
         } else if (mode === 1) {
+          // 90-degree clockwise rotation
           srcX = pieceSize - 1 - dy;
           srcY = dx;
         } else {
+          // Horizontal mirror flip (seamless, no modulo wrap-around cut!)
           srcX = pieceSize - 1 - dx;
-          srcY = (dy + Math.round(pieceSize * 0.3)) % pieceSize;
+          srcY = dy;
         }
-        decoyData[dy * pieceSize + dx] = basePiece.data[srcY * pieceSize + srcX];
+        decoyData[rowOffset + dx] = basePiece.data[srcY * pieceSize + srcX];
       }
     }
 
     let maxNcc = 0;
-    for (const real of realPieces) {
-      const ncc = computeNCC(decoyData, real.data);
+    for (let i = 0; i < realPieces.length; i++) {
+      const ncc = computeNCC(decoyData, realPieces[i].data);
       if (ncc > maxNcc) maxNcc = ncc;
     }
 
     decoyPieces.push({
-      id: 'decoy-' + (decoyPieces.length + 1),
+      id: "decoy-" + (decoyPieces.length + 1),
       isDecoy: true,
       size: pieceSize,
       data: decoyData,
-      maxNcc: Number(maxNcc.toFixed(3))
+      maxNcc: Number(maxNcc.toFixed(3)),
     });
   }
 
@@ -246,78 +290,83 @@ export function cutPuzzlePieces(width, height, processed, maskInfo, singularitie
     pieceSize,
     numReal: realPieces.length,
     numDecoys: decoyPieces.length,
-    difficulty: config.label
+    difficulty: HARD_CONFIG.label,
   };
 }
 
 /**
  * Strict 2D AABB Box Collision Check with safety margin
  */
-function hasAABBCollision(px, py, size, pieces, minGap = 8) {
-  for (const piece of pieces) {
-    const xOverlap = Math.abs(px - piece.x) < (size + minGap);
-    const yOverlap = Math.abs(py - piece.y) < (size + minGap);
-    if (xOverlap && yOverlap) {
-      return true; // Overlap detected
+function hasAABBCollision(px, py, size, pieces, minGap = 5) {
+  const minDist = size + minGap;
+  for (let i = 0; i < pieces.length; i++) {
+    const piece = pieces[i];
+    if (Math.abs(px - piece.x) < minDist && Math.abs(py - piece.y) < minDist) {
+      return true;
     }
   }
   return false;
 }
 
 function isValidPatch(px, py, size, width, height, mask) {
-  if (px < 5 || py < 5 || px + size >= width - 5 || py + size >= height - 5) return false;
+  if (px < 5 || py < 5 || px + size >= width - 5 || py + size >= height - 5)
+    return false;
   let count = 0;
-  // Sample every 2 pixels for fast, accurate check
+  let totalSampled = 0;
   for (let y = py; y < py + size; y += 2) {
+    const rowOffset = y * width;
     for (let x = px; x < px + size; x += 2) {
-      if (mask[y * width + x] > 0.05) count++;
+      totalSampled++;
+      if (mask[rowOffset + x] > 0.05) count++;
     }
   }
-  const totalSampled = Math.ceil(size / 2) * Math.ceil(size / 2);
-  return (count / totalSampled) >= 0.18;
+  return count / totalSampled >= 0.18;
 }
 
 function computePatchVariance(px, py, size, width, processed) {
   let sum = 0;
   let sumSq = 0;
-  const count = size * size;
-  for (let y = py; y < py + size; y++) {
-    for (let x = px; x < px + size; x++) {
-      const v = processed[y * width + x];
+  let count = 0;
+  // Stride-2 sampling is 4x faster and statistically identical for 56x56 ridge variance
+  for (let y = py; y < py + size; y += 2) {
+    const rowOffset = y * width;
+    for (let x = px; x < px + size; x += 2) {
+      const v = processed[rowOffset + x];
       sum += v;
       sumSq += v * v;
+      count++;
     }
   }
   const mean = sum / count;
   return sumSq / count - mean * mean;
 }
 
-function extractPatch(px, py, size, width, height, processed, orderIndex) {
-  const data = extractPatchData(px, py, size, width, processed);
+function extractPatch(px, py, size, width, processed, slotIndex) {
   return {
-    id: 'real-' + orderIndex,
-    orderIndex,
+    id: "real-" + (slotIndex + 1),
+    orderIndex: slotIndex + 1,
+    slotIndex,
     isDecoy: false,
     x: px,
     y: py,
     size,
-    data
+    data: extractPatchData(px, py, size, width, processed),
   };
 }
 
 function extractPatchData(px, py, size, width, processed) {
   const data = new Float32Array(size * size);
   for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      data[y * size + x] = processed[(py + y) * width + (px + x)];
-    }
+    const srcStart = (py + y) * width + px;
+    data.set(processed.subarray(srcStart, srcStart + size), y * size);
   }
   return data;
 }
 
 function computeNCC(a, b) {
   const len = a.length;
-  let meanA = 0, meanB = 0;
+  let meanA = 0,
+    meanB = 0;
   for (let i = 0; i < len; i++) {
     meanA += a[i];
     meanB += b[i];
@@ -325,7 +374,9 @@ function computeNCC(a, b) {
   meanA /= len;
   meanB /= len;
 
-  let num = 0, denA = 0, denB = 0;
+  let num = 0,
+    denA = 0,
+    denB = 0;
   for (let i = 0; i < len; i++) {
     const da = a[i] - meanA;
     const db = b[i] - meanB;
